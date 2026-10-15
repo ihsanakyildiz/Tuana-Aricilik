@@ -1,0 +1,31 @@
+Options -Indexes
+AddDefaultCharset UTF-8
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(app|config|data|sql|storage)(/.*)?$ - [F,L]
+    RewriteRule ^sayfa/([a-z0-9\-]+)/?$ sayfa.php?slug=$1 [L,QSA]
+    RewriteRule ^yazi/([a-z0-9\-]+)/?$ yazi.php?slug=$1 [L,QSA]
+    RewriteRule ^urun/([a-z0-9\-]+)/?$ urun.php?slug=$1 [L,QSA]
+    RewriteRule ^urunler/kategori/([a-z0-9\-]+)/?$ urunler.php?kategori=$1 [L,QSA]
+    RewriteRule ^urunler/?$ urunler.php [L]
+    RewriteRule ^blog/kategori/([a-z0-9\-]+)/?$ sayfa.php?slug=blog&kategori=$1 [L,QSA]
+    RewriteRule ^blog/?$ sayfa.php?slug=blog [L,QSA]
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
+    RewriteRule ^robots\.txt$ robots.php [L]
+    RewriteRule ^uye-giris/?$ uye-giris.php [L,QSA]
+    RewriteRule ^uye-ol/?$ uye-ol.php [L,QSA]
+    RewriteRule ^hesabim/?$ hesabim.php [L,QSA]
+    RewriteRule ^uye-cikis/?$ uye-cikis.php [L]
+    RewriteRule ^siparis/?$ siparis.php [L,QSA]
+    RewriteRule ^odeme-kart/?$ odeme-kart.php [L,QSA]
+    RewriteRule ^odeme-sonuc/?$ odeme-sonuc.php [L,QSA]
+    RewriteRule ^paytr-bildirim/?$ paytr-bildirim.php [L]
+    RewriteRule ^geliver-bildirim/?$ geliver-bildirim.php [L]
+    RewriteRule ^tesekkur/?$ tesekkur.php [L,QSA]
+    RewriteRule ^siparislerim/?$ siparislerim.php [L,QSA]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([a-z0-9\-]+)/?$ sayfa.php?slug=$1 [L,QSA]
+</IfModule>
