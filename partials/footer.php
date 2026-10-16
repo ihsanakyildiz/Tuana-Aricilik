@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-$columns = setting('footer_columns', []);
+require_once __DIR__ . '/../app/FooterLinks.php';
+
+$columns = FooterLinks::columns();
 $socials = setting('socials', []);
 $intro = setting('intro', []);
-if (!is_array($columns)) {
-    $columns = [];
-}
 if (!is_array($socials)) {
     $socials = [];
 }

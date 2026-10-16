@@ -1022,6 +1022,54 @@
         });
     });
 
+    var footerBoard = document.querySelector("[data-footer-board]");
+    if (footerBoard) {
+        var footerLimit = 12;
+        var footerRows = function (column) {
+            var list = column.querySelector("[data-footer-links]");
+            return list ? list.querySelectorAll("[data-footer-row]") : [];
+        };
+        footerBoard.addEventListener("click", function (event) {
+            var target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+            var column = target.closest("[data-footer-col]");
+            if (!column) {
+                return;
+            }
+            var row = target.closest("[data-footer-row]");
+            var list = column.querySelector("[data-footer-links]");
+            if (target.closest("[data-footer-add]")) {
+                var template = column.querySelector("[data-footer-template]");
+                if (!list || !template || footerRows(column).length >= footerLimit) {
+                    return;
+                }
+                list.appendChild(template.content.cloneNode(true));
+                var added = list.lastElementChild;
+                var field = added ? added.querySelector("input") : null;
+                if (field) {
+                    field.focus();
+                }
+                return;
+            }
+            if (!row || !list) {
+                return;
+            }
+            if (target.closest("[data-footer-remove]")) {
+                row.remove();
+                return;
+            }
+            if (target.closest("[data-footer-up]") && row.previousElementSibling) {
+                list.insertBefore(row, row.previousElementSibling);
+                return;
+            }
+            if (target.closest("[data-footer-down]") && row.nextElementSibling) {
+                list.insertBefore(row.nextElementSibling, row);
+            }
+        });
+    }
+
     document.querySelectorAll("[data-toggle-password]").forEach(function (button) {
         button.addEventListener("click", function () {
             var input = document.getElementById(button.getAttribute("data-toggle-password"));

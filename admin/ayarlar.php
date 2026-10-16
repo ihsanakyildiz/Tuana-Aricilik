@@ -184,7 +184,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
 
         <section class="settings-card">
             <h2>Alt bilgi</h2>
-            <p class="settings-lead">Telif satırında <code>{yil}</code> yazarsan yıl her ocakta kendiliğinden değişir.</p>
+            <p class="settings-lead">Telif satırında <code>{yil}</code> yazarsan yıl her ocakta kendiliğinden değişir. Bağlantı sütunları <a href="<?= root_url('admin/footer.php') ?>">Footer</a> sayfasından düzenlenir.</p>
             <label class="field" for="copyright">
                 <span>Telif hakkı yazısı</span>
                 <input id="copyright" name="copyright" type="text" maxlength="180" value="<?= e((string) $values['copyright']) ?>">
