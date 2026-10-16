@@ -312,6 +312,15 @@ final class OrderBook
             return ['errors' => ['Bir ödeme yöntemi seç.'], 'order' => null];
         }
 
+        $replay = self::recentOpen($member, $key, $qty, $payment, $cargoName, $cargoPrice);
+        if (is_array($replay)) {
+            if ((int) ($member['id'] ?? 0) === 0) {
+                self::grantGuest((string) $replay['order_no']);
+            }
+
+            return ['errors' => [], 'order' => $replay];
+        }
+
         try {
             $pdo->beginTransaction();
             $held = ProductEditor::holdStock($pdo, $key, $qty);
@@ -367,8 +376,9 @@ final class OrderBook
             return ['errors' => ['Sipariş kaydedilemedi. Yeniden dene.'], 'order' => null];
         }
 
-        $order = self::findForMember($orderNo, (int) $member['id']);
-        if (is_array($order) && (int) ($member['id'] ?? 0) === 0) {
+        $memberId = (int) ($member['id'] ?? 0);
+        $order = $memberId > 0 ? self::findForMember($orderNo, $memberId) : self::find($orderNo);
+        if (is_array($order) && $memberId === 0) {
             self::grantGuest($orderNo);
         }
         if (is_array($order)) {
@@ -377,6 +387,46 @@ final class OrderBook
         }
 
         return ['errors' => [], 'order' => $order];
+    }
+
+    /** @param array<string, mixed> $member */
+    private static function recentOpen(array $member, string $key, int $qty, string $payment, string $cargoName, string $cargoPrice): ?array
+    {
+        $pdo = db_pdo();
+        if (!$pdo instanceof PDO || $qty < 1 || !preg_match('/^[a-z0-9\-]+$/', $key)) {
+            return null;
+        }
+        $memberId = (int) ($member['id'] ?? 0);
+        $stmt = $pdo->prepare(
+            'SELECT order_no FROM orders
+             WHERE member_id = ? AND product_key = ? AND qty = ? AND payment_method = ? AND cargo_name = ?
+               AND status IN (\'odeme_bekliyor\', \'teslimde_odenecek\')
+               AND created_at >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)
+             ORDER BY id DESC
+             LIMIT 8'
+        );
+        $stmt->execute([$memberId, $key, $qty, $payment, $cargoName]);
+        $wantedCargo = number_format((float) $cargoPrice, 2, '.', '');
+        $email = strtolower(trim((string) ($member['email'] ?? '')));
+        foreach ($stmt->fetchAll() as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $order = self::find((string) $row['order_no']);
+            if ($order === null || number_format((float) $order['cargo_price'], 2, '.', '') !== $wantedCargo) {
+                continue;
+            }
+            if ($memberId === 0) {
+                $orderEmail = strtolower(trim((string) ($order['email'] ?? '')));
+                if ($email === '' || $orderEmail !== $email) {
+                    continue;
+                }
+            }
+
+            return $order;
+        }
+
+        return null;
     }
 
     public static function grantGuest(string $orderNo): void

@@ -100,6 +100,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 if ($errors === [] && is_array($result['order'])) {
                     MemberAccount::redirect(((string) ($result['order']['payment_method'] ?? '') === 'kart' ? 'odeme-kart?' : 'tesekkur?') . OrderBook::resumeQuery($result['order']));
                 }
+                if ($errors === []) {
+                    $errors[] = 'Sipariş kaydı tamamlanamadı. Sayfayı yenileyip yeniden dene.';
+                }
             }
         }
     } else {

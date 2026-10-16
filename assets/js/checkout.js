@@ -61,7 +61,7 @@
             field.required = card;
         });
         var place = root.querySelector("[data-place]");
-        if (place) {
+        if (place && root.getAttribute("data-placing") !== "1") {
             place.textContent = payment === "kart" ? "Ödemeye geç" : "Siparişi tamamla";
         }
         if (subtotal) {
@@ -77,5 +77,21 @@
 
     root.addEventListener("change", sync);
     root.addEventListener("input", sync);
+    root.addEventListener("submit", function (event) {
+        if (root.getAttribute("data-placing") === "1") {
+            event.preventDefault();
+            return;
+        }
+        root.setAttribute("data-placing", "1");
+        var place = root.querySelector("[data-place]");
+        if (!place) {
+            return;
+        }
+        place.setAttribute("aria-disabled", "true");
+        place.textContent = "Sipariş oluşturuluyor…";
+        window.setTimeout(function () {
+            place.disabled = true;
+        }, 0);
+    });
     sync();
 }());
