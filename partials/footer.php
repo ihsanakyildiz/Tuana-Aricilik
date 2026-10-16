@@ -56,7 +56,7 @@ if (!is_array($intro)) {
             </div>
         <?php endforeach; ?>
         <div class="footer-col">
-            <h2><?= e((string) setting('contact_title', 'İletişim')) ?></h2>
+            <h2><a href="<?= url('/iletisim') ?>"><?= e((string) setting('contact_title', 'İletişim')) ?></a></h2>
             <ul class="contact-list">
                 <?php if (trim((string) setting('address', '')) !== ''): ?>
                     <li>

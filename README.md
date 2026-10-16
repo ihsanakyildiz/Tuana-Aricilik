@@ -88,6 +88,7 @@ Adres: `/admin/`. Giriş `/admin/giris.php`.
 | Müşteriler | Üyelik, kargo adresi ve fatura düzenleme |
 | Karşılama | Ana sayfa kahraman alanı |
 | Sayfalar | Klasik sayfalar ve sayfa içeriği |
+| İletişim | İletişim sayfası, form ve gelen kutusu |
 | Menüler | Üst menü |
 | Bölümler ve kartlar | Ana sayfa bölümleri ve yeniden kullanılan kartlar |
 | Yazılar | Blog yazıları ve yazı kategorileri |
@@ -103,6 +104,7 @@ Adres: `/admin/`. Giriş `/admin/giris.php`.
 | Adres | Sayfa |
 | --- | --- |
 | `/` | Ana sayfa |
+| `/iletisim` | İletişim |
 | `/urunler` | Mağaza |
 | `/urunler/kategori/{slug}` | Kategori |
 | `/urun/{slug}` | Ürün |

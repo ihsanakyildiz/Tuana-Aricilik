@@ -180,6 +180,23 @@ final class Installer
                 KEY idx_notice_new (is_read, id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS messages (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                name VARCHAR(80) NOT NULL,
+                email VARCHAR(120) NOT NULL,
+                phone VARCHAR(40) NOT NULL DEFAULT "",
+                subject VARCHAR(80) NOT NULL,
+                body VARCHAR(2000) NOT NULL,
+                ip_hash CHAR(64) NOT NULL DEFAULT "",
+                is_read TINYINT(1) NOT NULL DEFAULT 0,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_message_new (is_read, id),
+                KEY idx_message_ip (ip_hash, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
     }
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void

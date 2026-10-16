@@ -50,6 +50,7 @@ $adminNav = [
         'items' => [
             ['id' => 'hero', 'label' => 'Karşılama', 'icon' => 'image', 'href' => root_url('admin/hero.php')],
             ['id' => 'sayfalar', 'label' => 'Sayfalar', 'icon' => 'pages', 'href' => root_url('admin/sayfalar.php')],
+            ['id' => 'iletisim', 'label' => 'İletişim', 'icon' => 'message', 'href' => root_url('admin/iletisim.php')],
             ['id' => 'menuler', 'label' => 'Menüler', 'icon' => 'menu', 'href' => root_url('admin/menuler.php')],
             ['id' => 'bolumler', 'label' => 'Bölümler', 'icon' => 'layers', 'href' => root_url('admin/bolumler.php')],
             ['id' => 'kartlar', 'label' => 'Kartlar', 'icon' => 'cards', 'href' => root_url('admin/bolumler.php?kartlar=1')],
@@ -164,6 +165,7 @@ $renderNavLink = static function (array $item, string $activeNav): void {
                             <h3>İçerik</h3>
                             <a href="<?= root_url('admin/hero.php') ?>">Karşılama</a>
                             <a href="<?= root_url('admin/sayfalar.php') ?>">Sayfalar</a>
+                            <a href="<?= root_url('admin/iletisim.php') ?>">İletişim</a>
                             <a href="<?= root_url('admin/menuler.php') ?>">Menüler</a>
                             <a href="<?= root_url('admin/bolumler.php') ?>">Bölümler</a>
                             <a href="<?= root_url('admin/bolumler.php?kartlar=1') ?>">Kartlar</a>

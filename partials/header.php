@@ -38,6 +38,13 @@ if (!is_array($socials)) {
 if (!is_array($contactButton)) {
     $contactButton = [];
 }
+$contactHref = trim((string) ($contactButton['url'] ?? ''));
+if ($contactHref === '' || $contactHref === '#iletisim') {
+    $contactButton['url'] = '/iletisim';
+}
+if (trim((string) ($contactButton['label'] ?? '')) === '') {
+    $contactButton['label'] = 'İletişim';
+}
 ?>
 <!DOCTYPE html>
 <html lang="tr">

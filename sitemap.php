@@ -29,6 +29,7 @@ if ($pdo instanceof PDO) {
         }
     }
     $add('/', (string) ($pageUpdated['home'] ?? ''));
+    $add('/iletisim', '');
     $add('/blog', (string) ($pageUpdated['blog'] ?? ''));
     if (isset($pageUpdated['hakkimizda'])) {
         $add('/hakkimizda', $pageUpdated['hakkimizda']);

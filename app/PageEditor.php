@@ -542,7 +542,7 @@ final class PageEditor
 
     private static function reserved(string $slug): bool
     {
-        $fixed = ['home', 'blog', 'admin', 'yazi', 'sayfa', 'sitemap', 'robots', 'assets', 'app', 'config', 'data', 'sql', 'storage', 'onizleme', 'index', 'giris', 'kategori', 'uye-giris', 'uye-ol', 'hesabim', 'uye-cikis', 'uyeler'];
+        $fixed = ['home', 'blog', 'admin', 'yazi', 'sayfa', 'sitemap', 'robots', 'assets', 'app', 'config', 'data', 'sql', 'storage', 'onizleme', 'index', 'giris', 'kategori', 'uye-giris', 'uye-ol', 'hesabim', 'uye-cikis', 'uyeler', 'iletisim'];
         if (in_array($slug, $fixed, true)) {
             return true;
         }

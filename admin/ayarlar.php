@@ -143,7 +143,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
 
         <section class="settings-card">
             <h2>İletişim</h2>
-            <p class="settings-lead">Bu bilgiler alt bilgideki iletişim sütununda ve üstteki düğmede kullanılır.</p>
+            <p class="settings-lead">Bu bilgiler alt bilgideki iletişim sütununda ve üstteki düğmede kullanılır. Sayfa metni, form ve gelen kutusu İçerik, İletişim ekranındadır.</p>
             <div class="fields-2">
                 <label class="field" for="email">
                     <span>E-posta</span>

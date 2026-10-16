@@ -102,6 +102,30 @@ final class Notices
         }
     }
 
+    public static function message(int $id, string $name, string $email, string $subject): void
+    {
+        try {
+            self::messageNotice($id, $name, $email, $subject);
+        } catch (Throwable $exception) {
+            return;
+        }
+    }
+
+    private static function messageNotice(int $id, string $name, string $email, string $subject): void
+    {
+        if ($id < 1) {
+            return;
+        }
+        $name = self::clip($name, 80);
+        $subject = self::clip($subject, 80);
+        $title = 'Yeni iletişim mesajı';
+        $body = $subject !== '' ? $subject : self::clip($email, 120);
+        if ($name !== '') {
+            $body = $name . ($body !== '' ? ' · ' . $body : '');
+        }
+        self::push('iletisim', $title, $body, 'admin/iletisim.php?mesaj=' . $id);
+    }
+
     /** @param array<string, mixed> $order */
     private static function orderNotice(array $order): void
     {

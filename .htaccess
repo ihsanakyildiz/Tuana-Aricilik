@@ -25,6 +25,7 @@ DirectoryIndex index.php
     RewriteRule ^geliver-bildirim/?$ geliver-bildirim.php [L]
     RewriteRule ^tesekkur/?$ tesekkur.php [L,QSA]
     RewriteRule ^siparislerim/?$ siparislerim.php [L,QSA]
+    RewriteRule ^iletisim/?$ iletisim.php [L,QSA]
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^([a-z0-9\-]+)/?$ sayfa.php?slug=$1 [L,QSA]
