@@ -183,6 +183,8 @@ $orderNo = (string) ($order['order_no'] ?? '');
             <p><?= e(MemberAccount::phoneLabel((string) $order['phone'])) ?></p>
             <?php if ((int) $order['member_id'] > 0): ?>
                 <p><a href="<?= root_url('admin/musteriler.php?uye=' . (int) $order['member_id']) ?>">Üye kaydı</a></p>
+            <?php else: ?>
+                <p class="sale-note">Üye olmadan verilen sipariş.</p>
             <?php endif; ?>
         </section>
         <section class="sale-card">

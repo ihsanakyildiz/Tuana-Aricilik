@@ -319,6 +319,46 @@ final class MemberAccount
     }
 
     /** @param array<string, mixed> $input
+     *  @return array{errors:list<string>,guest:?array<string,mixed>}
+     */
+    public static function guestProfile(array $input): array
+    {
+        self::boot(true);
+        $email = self::email((string) ($input['guest_email'] ?? ''));
+        $errors = [];
+        if ($email === null) {
+            $errors[] = 'E-posta adresini yaz.';
+        } elseif (preg_match('/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/', $email) !== 1 || strlen($email) > 100) {
+            $errors[] = 'E-posta adresinde yalnızca İngilizce karakterler olmalı.';
+        }
+        $shipping = self::shippingFromInput($input);
+        $invoice = self::invoiceFromInput($input, $shipping['errors'] === [], true);
+        $errors = array_merge($errors, $shipping['errors'], $invoice['errors']);
+        if ($errors !== [] || $email === null) {
+            return ['errors' => $errors, 'guest' => null];
+        }
+        $address = $shipping['shipping'];
+        $address['email'] = $email;
+
+        return [
+            'errors' => [],
+            'guest' => [
+                'id' => 0,
+                'email' => $email,
+                'first_name' => '',
+                'last_name' => '',
+                'phone' => $address['phone'],
+                'profile' => [
+                    'shipping' => $address,
+                    'invoice' => $invoice['invoice'],
+                ],
+                'shipping_ready' => true,
+                'invoice_ready' => true,
+            ],
+        ];
+    }
+
+    /** @param array<string, mixed> $input
      *  @return list<string>
      */
     public static function saveFor(int $id, string $action, array $input): array
@@ -554,6 +594,21 @@ final class MemberAccount
      */
     private static function saveShipping(PDO $pdo, array $member, array $input): array
     {
+        $built = self::shippingFromInput($input);
+        if ($built['errors'] !== []) {
+            return $built['errors'];
+        }
+        $profile = $member['profile'];
+        $profile['shipping'] = $built['shipping'];
+
+        return self::storeProfile($pdo, (int) $member['id'], $profile);
+    }
+
+    /** @param array<string, mixed> $input
+     *  @return array{errors:list<string>,shipping:array<string, string>}
+     */
+    private static function shippingFromInput(array $input): array
+    {
         $chain = LocationCatalog::chain(
             (int) ($input['ship_city'] ?? 0),
             (int) ($input['ship_district'] ?? 0),
@@ -562,15 +617,15 @@ final class MemberAccount
         $shipping = [
             'full_name' => self::personName((string) ($input['ship_name'] ?? '')) ?? '',
             'phone' => self::phone((string) ($input['ship_phone'] ?? '')) ?? '',
-            'city_id' => $chain['city_id'] ?? '',
-            'district_id' => $chain['district_id'] ?? '',
-            'place_id' => $chain['place_id'] ?? '',
-            'place_kind' => $chain['place_kind'] ?? '',
-            'city' => $chain['city'] ?? '',
-            'district' => $chain['district'] ?? '',
-            'neighborhood' => $chain['neighborhood'] ?? '',
+            'city_id' => (string) ($chain['city_id'] ?? ''),
+            'district_id' => (string) ($chain['district_id'] ?? ''),
+            'place_id' => (string) ($chain['place_id'] ?? ''),
+            'place_kind' => (string) ($chain['place_kind'] ?? ''),
+            'city' => (string) ($chain['city'] ?? ''),
+            'district' => (string) ($chain['district'] ?? ''),
+            'neighborhood' => (string) ($chain['neighborhood'] ?? ''),
             'line' => self::line((string) ($input['ship_line'] ?? ''), 10, 180) ?? '',
-            'postal' => self::postal((string) ($input['ship_postal'] ?? '')),
+            'postal' => self::postal((string) ($input['ship_postal'] ?? '')) ?? '',
             'note' => self::clip((string) ($input['ship_note'] ?? ''), 180),
         ];
         $errors = [];
@@ -586,17 +641,12 @@ final class MemberAccount
         if ($shipping['line'] === '') {
             $errors[] = 'Açık adresi yaz.';
         }
-        if ($shipping['postal'] === null) {
+        if (self::postal((string) ($input['ship_postal'] ?? '')) === null) {
             $errors[] = 'Posta kodu 5 rakam olmalı.';
             $shipping['postal'] = '';
         }
-        if ($errors !== []) {
-            return $errors;
-        }
-        $profile = $member['profile'];
-        $profile['shipping'] = $shipping;
 
-        return self::storeProfile($pdo, (int) $member['id'], $profile);
+        return ['errors' => $errors, 'shipping' => $shipping];
     }
 
     /** @param array<string, mixed> $member
@@ -605,9 +655,40 @@ final class MemberAccount
      */
     private static function saveInvoice(PDO $pdo, array $member, array $input): array
     {
+        $built = self::invoiceFromInput($input, self::shippingReady($member));
+        if ($built['errors'] !== []) {
+            return $built['errors'];
+        }
+        $profile = $member['profile'];
+        $profile['invoice'] = $built['invoice'];
+
+        return self::storeProfile($pdo, (int) $member['id'], $profile);
+    }
+
+    /** @param array<string, mixed> $input
+     *  @return array{errors:list<string>,invoice:array<string, mixed>}
+     */
+    private static function invoiceFromInput(array $input, bool $shippingReady, bool $combined = false): array
+    {
         $kind = (string) ($input['invoice_kind'] ?? '');
+        $blank = [
+            'kind' => 'bireysel',
+            'title' => '',
+            'tax_office' => '',
+            'tax_no' => '',
+            'same' => false,
+            'city_id' => '',
+            'district_id' => '',
+            'place_id' => '',
+            'place_kind' => '',
+            'city' => '',
+            'district' => '',
+            'neighborhood' => '',
+            'line' => '',
+            'postal' => '',
+        ];
         if (!in_array($kind, ['bireysel', 'kurumsal'], true)) {
-            return ['Fatura türünü seç.'];
+            return ['errors' => ['Fatura türünü seç.'], 'invoice' => $blank];
         }
         $same = $kind === 'bireysel' && isset($input['invoice_same']);
         $title = self::line((string) ($input['invoice_title'] ?? ''), 2, 120) ?? '';
@@ -628,7 +709,6 @@ final class MemberAccount
                 $errors[] = 'Vergi numarası 10 rakam olmalı.';
             }
         }
-        $chain = null;
         $address = [
             'city_id' => '',
             'district_id' => '',
@@ -647,13 +727,13 @@ final class MemberAccount
                 (int) ($input['invoice_place'] ?? 0)
             );
             if ($chain !== null) {
-                $address['city_id'] = $chain['city_id'];
-                $address['district_id'] = $chain['district_id'];
-                $address['place_id'] = $chain['place_id'];
-                $address['place_kind'] = $chain['place_kind'];
-                $address['city'] = $chain['city'];
-                $address['district'] = $chain['district'];
-                $address['neighborhood'] = $chain['neighborhood'];
+                $address['city_id'] = (string) $chain['city_id'];
+                $address['district_id'] = (string) $chain['district_id'];
+                $address['place_id'] = (string) $chain['place_id'];
+                $address['place_kind'] = (string) $chain['place_kind'];
+                $address['city'] = (string) $chain['city'];
+                $address['district'] = (string) $chain['district'];
+                $address['neighborhood'] = (string) $chain['neighborhood'];
             }
             $address['line'] = self::line((string) ($input['invoice_line'] ?? ''), 10, 180) ?? '';
             $postal = self::postal((string) ($input['invoice_postal'] ?? ''));
@@ -665,31 +745,19 @@ final class MemberAccount
             } else {
                 $address['postal'] = $postal;
             }
-        } elseif (!self::shippingReady($member)) {
+        } elseif (!$shippingReady && !$combined) {
             $errors[] = 'Fatura adresi kargo adresiyle aynı olacaksa önce kargo adresini kaydet.';
         }
-        if ($errors !== []) {
-            return $errors;
+        $blank['kind'] = $kind;
+        $blank['title'] = $title;
+        $blank['tax_office'] = $kind === 'kurumsal' ? $office : '';
+        $blank['tax_no'] = $tax;
+        $blank['same'] = $same;
+        foreach ($address as $key => $value) {
+            $blank[$key] = $value;
         }
-        $profile = $member['profile'];
-        $profile['invoice'] = [
-            'kind' => $kind,
-            'title' => $title,
-            'tax_office' => $kind === 'kurumsal' ? $office : '',
-            'tax_no' => $tax,
-            'same' => $same,
-            'city_id' => $address['city_id'],
-            'district_id' => $address['district_id'],
-            'place_id' => $address['place_id'],
-            'place_kind' => $address['place_kind'],
-            'city' => $address['city'],
-            'district' => $address['district'],
-            'neighborhood' => $address['neighborhood'],
-            'line' => $address['line'],
-            'postal' => $address['postal'],
-        ];
 
-        return self::storeProfile($pdo, (int) $member['id'], $profile);
+        return ['errors' => $errors, 'invoice' => $blank];
     }
 
     /** @param array<string, mixed> $profile

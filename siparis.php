@@ -17,7 +17,7 @@ if (preg_match('#/siparis/$#', $rawPath) === 1) {
 }
 
 public_maintenance();
-MemberAccount::requireLogin();
+MemberAccount::boot(true);
 header('X-Robots-Tag: noindex, follow');
 header('Cache-Control: no-store');
 
@@ -47,13 +47,19 @@ $available = !$product['stock_track'] || (int) $product['stock_qty'] > 0;
 $maxQty = $product['stock_track'] ? max(0, (int) $product['stock_qty']) : 99;
 
 $member = MemberAccount::current();
-if ($member === null) {
-    MemberAccount::redirect('uye-giris?sonraki=' . rawurlencode('/siparis?urun=' . $productKey));
+$guest = null;
+if ($member === null && is_array($_SESSION['guest_checkout'] ?? null)) {
+    $storedGuest = $_SESSION['guest_checkout'];
+    $storedProfile = is_array($storedGuest['profile'] ?? null) ? $storedGuest['profile'] : [];
+    if (is_array($storedProfile['shipping'] ?? null) && is_array($storedProfile['invoice'] ?? null)) {
+        $guest = $storedGuest;
+    }
 }
-$profile = is_array($member['profile'] ?? null) ? $member['profile'] : [];
+$profile = is_array($member['profile'] ?? null) ? $member['profile'] : (is_array($guest['profile'] ?? null) ? $guest['profile'] : []);
 $shipping = is_array($profile['shipping'] ?? null) ? $profile['shipping'] : [];
-$shippingReady = !empty($member['shipping_ready']);
-$invoiceReady = !empty($member['invoice_ready']);
+$invoice = is_array($profile['invoice'] ?? null) ? $profile['invoice'] : [];
+$shippingReady = $member !== null ? !empty($member['shipping_ready']) : $guest !== null;
+$invoiceReady = $member !== null ? !empty($member['invoice_ready']) : $guest !== null;
 
 $errors = [];
 $failedAction = '';
@@ -66,9 +72,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $failedAction = (string) ($_POST['action'] ?? '');
     if (!MemberAccount::checkCsrf(isset($_POST['csrf']) ? (string) $_POST['csrf'] : null)) {
         $errors[] = 'Oturum doğrulanamadı. Sayfayı yenileyip yeniden dene.';
-    } elseif ($failedAction === 'shipping') {
+    } elseif ($failedAction === 'shipping' && $member !== null) {
         $errors = MemberAccount::save('shipping', $_POST);
         if ($errors === []) {
+            MemberAccount::redirect('siparis?urun=' . rawurlencode($productKey));
+        }
+        $step = 'adres';
+    } elseif ($failedAction === 'guest' && $member === null) {
+        $draft = MemberAccount::guestProfile($_POST);
+        $errors = $draft['errors'];
+        if ($errors === [] && is_array($draft['guest'])) {
+            $_SESSION['guest_checkout'] = $draft['guest'];
             MemberAccount::redirect('siparis?urun=' . rawurlencode($productKey));
         }
         $step = 'adres';
@@ -77,14 +91,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         if (!$available) {
             $errors[] = 'Bu ürün tükendi.';
         } else {
-            $result = OrderBook::place($member, $_POST);
-            $errors = $result['errors'];
-            if ($errors === [] && is_array($result['order'])) {
-                $placedNo = rawurlencode((string) $result['order']['order_no']);
-                if ((string) ($result['order']['payment_method'] ?? '') === 'kart') {
-                    MemberAccount::redirect('odeme-kart?no=' . $placedNo);
+            $buyer = $member ?? $guest;
+            if (!is_array($buyer)) {
+                $errors[] = 'Sipariş için teslimat ve fatura bilgisi gerekli.';
+            } else {
+                $result = OrderBook::place($buyer, $_POST);
+                $errors = $result['errors'];
+                if ($errors === [] && is_array($result['order'])) {
+                    MemberAccount::redirect(((string) ($result['order']['payment_method'] ?? '') === 'kart' ? 'odeme-kart?' : 'tesekkur?') . OrderBook::resumeQuery($result['order']));
                 }
-                MemberAccount::redirect('tesekkur?no=' . $placedNo);
             }
         }
     } else {
@@ -96,7 +111,8 @@ if ($step === 'odeme' && !$shippingReady) {
     MemberAccount::redirect('siparis?urun=' . rawurlencode($productKey));
 }
 
-$editing = $step === 'adres' && (!$shippingReady || isset($_GET['duzenle']) || $failedAction === 'shipping');
+$editing = $step === 'adres' && $member !== null && (!$shippingReady || isset($_GET['duzenle']) || $failedAction === 'shipping');
+$guestEditing = $step === 'adres' && $member === null && (!$shippingReady || isset($_GET['duzenle']) || $failedAction === 'guest');
 $cargoMethods = OrderBook::cargoMethods(true);
 $banks = OrderBook::banks();
 $payMethods = OrderBook::enabledPayments();
@@ -117,7 +133,7 @@ if ($payment === 'elden') {
 }
 
 $value = static function (string $key, string $stored) use ($failedAction): string {
-    if ($failedAction === 'shipping' && isset($_POST[$key])) {
+    if (in_array($failedAction, ['shipping', 'guest'], true) && isset($_POST[$key])) {
         return trim((string) $_POST[$key]);
     }
 
@@ -129,7 +145,7 @@ $metaDescription = 'Teslimat adresi, kargo ve ödeme';
 $canonicalPath = '/siparis';
 $bodyClass = 'is-page is-shop';
 $robots = 'noindex,follow';
-$pageScript = $step === 'odeme' ? 'js/checkout.js' : ($editing ? 'js/address.js' : '');
+$pageScript = $step === 'odeme' ? 'js/checkout.js' : (($editing || $guestEditing) ? 'js/address.js' : '');
 $shopTitle = 'Sipariş';
 $shopCrumbs = [
     ['label' => 'Ana Sayfa', 'url' => '/'],
@@ -160,6 +176,8 @@ require __DIR__ . '/partials/shop-banner.php';
                     <p>Bu ürün tükendi.</p>
                     <a href="<?= url('/urun/' . $productKey) ?>">Ürüne dön</a>
                 </section>
+            <?php elseif ($step === 'adres' && $member === null): ?>
+                <?php require __DIR__ . '/partials/guest-address.php'; ?>
             <?php elseif ($step === 'adres'): ?>
                 <section class="account-panel">
                     <h2><?= $editing ? 'Teslimat adresi' : 'Teslimat adresini kontrol et' ?></h2>

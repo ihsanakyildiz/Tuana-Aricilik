@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/ProductEditor.php';
+require_once __DIR__ . '/MemberAccount.php';
 require_once __DIR__ . '/Paytr.php';
 require_once __DIR__ . '/Geliver.php';
 
@@ -286,6 +287,9 @@ final class OrderBook
         if (empty($member['shipping_ready'])) {
             return ['errors' => ['Sipariş için kargo adresi gerekli.'], 'order' => null];
         }
+        if ((int) ($member['id'] ?? 0) === 0) {
+            $shipping['access'] = bin2hex(random_bytes(16));
+        }
         if ($payment === 'kart') {
             $paytrError = Paytr::checkoutError($member, $shipping);
             if ($paytrError !== null) {
@@ -363,8 +367,61 @@ final class OrderBook
         }
 
         $order = self::findForMember($orderNo, (int) $member['id']);
+        if (is_array($order) && (int) ($member['id'] ?? 0) === 0) {
+            self::grantGuest($orderNo);
+        }
 
         return ['errors' => [], 'order' => $order];
+    }
+
+    public static function grantGuest(string $orderNo): void
+    {
+        if (!self::validNo($orderNo)) {
+            return;
+        }
+        MemberAccount::boot(true);
+        $known = $_SESSION['guest_orders'] ?? [];
+        if (!is_array($known)) {
+            $known = [];
+        }
+        $known[$orderNo] = 1;
+        $_SESSION['guest_orders'] = $known;
+    }
+
+    public static function forViewer(string $orderNo, string $access = ''): ?array
+    {
+        if (!self::validNo($orderNo)) {
+            return null;
+        }
+        $member = MemberAccount::current();
+        if ($member !== null) {
+            $own = self::findForMember($orderNo, (int) $member['id']);
+            if ($own !== null) {
+                return $own;
+            }
+        }
+        $order = self::find($orderNo);
+        if ($order === null || (int) $order['member_id'] !== 0) {
+            return null;
+        }
+        MemberAccount::boot(true);
+        $known = $_SESSION['guest_orders'] ?? [];
+        $sessionOk = is_array($known) && isset($known[$orderNo]);
+        $stored = (string) ($order['access'] ?? '');
+        $keyOk = $access !== '' && $stored !== '' && hash_equals($stored, $access);
+
+        return $sessionOk || $keyOk ? $order : null;
+    }
+
+    public static function resumeQuery(array $order): string
+    {
+        $query = 'no=' . rawurlencode((string) ($order['order_no'] ?? ''));
+        $access = (string) ($order['access'] ?? '');
+        if ($access !== '') {
+            $query .= '&anahtar=' . rawurlencode($access);
+        }
+
+        return $query;
     }
 
     /** @return list<string> */
@@ -877,6 +934,12 @@ final class OrderBook
         foreach ($keys as $key) {
             $snapshot[$key] = trim((string) ($shipping[$key] ?? ''));
         }
+        foreach (['email', 'access'] as $extra) {
+            $value = trim((string) ($shipping[$extra] ?? ''));
+            if ($value !== '') {
+                $snapshot[$extra] = $value;
+            }
+        }
 
         return $snapshot;
     }
@@ -910,6 +973,29 @@ final class OrderBook
         $total = number_format((float) $row['total'], 2, '.', '');
         $shipping = decode_value((string) ($row['shipping_json'] ?? ''));
         $invoice = decode_value((string) ($row['invoice_json'] ?? ''));
+        if (!is_array($shipping)) {
+            $shipping = [];
+        }
+        if (!is_array($invoice)) {
+            $invoice = [];
+        }
+        $access = (string) ($shipping['access'] ?? '');
+        unset($shipping['access']);
+        $first = (string) ($row['first_name'] ?? '');
+        $last = (string) ($row['last_name'] ?? '');
+        if ($first === '' && $last === '') {
+            $parts = preg_split('/\s+/u', trim((string) ($shipping['full_name'] ?? '')), 2) ?: [];
+            $first = (string) ($parts[0] ?? '');
+            $last = (string) ($parts[1] ?? '');
+        }
+        $email = (string) ($row['email'] ?? '');
+        if ($email === '') {
+            $email = (string) ($shipping['email'] ?? '');
+        }
+        $phone = (string) ($row['phone'] ?? '');
+        if ($phone === '') {
+            $phone = (string) ($shipping['phone'] ?? '');
+        }
 
         return [
             'order_no' => (string) $row['order_no'],
@@ -924,13 +1010,14 @@ final class OrderBook
             'cargo_name' => (string) $row['cargo_name'],
             'cargo_price' => $cargo,
             'total' => $total,
-            'shipping' => is_array($shipping) ? $shipping : [],
-            'invoice' => is_array($invoice) ? $invoice : [],
+            'shipping' => $shipping,
+            'invoice' => $invoice,
             'created_at' => (string) ($row['created_at'] ?? ''),
-            'first_name' => (string) ($row['first_name'] ?? ''),
-            'last_name' => (string) ($row['last_name'] ?? ''),
-            'email' => (string) ($row['email'] ?? ''),
-            'phone' => (string) ($row['phone'] ?? ''),
+            'first_name' => $first,
+            'last_name' => $last,
+            'email' => $email,
+            'phone' => $phone,
+            'access' => $access,
             'paytr_note' => (string) ($row['paytr_note'] ?? ''),
             'paytr_collected' => number_format((float) ($row['paytr_collected'] ?? 0), 2, '.', ''),
             'refunded' => number_format((float) ($row['refunded'] ?? 0), 2, '.', ''),

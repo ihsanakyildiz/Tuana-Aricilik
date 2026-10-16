@@ -298,7 +298,7 @@ try {
         }
 
         $members = (int) $pdo->query('SELECT COUNT(*) FROM members')->fetchColumn();
-        $buyers = (int) $pdo->query("SELECT COUNT(DISTINCT member_id) FROM orders WHERE status NOT IN ('iptal', 'iade')")->fetchColumn();
+        $buyers = (int) $pdo->query("SELECT COUNT(DISTINCT member_id) FROM orders WHERE member_id > 0 AND status NOT IN ('iptal', 'iade')")->fetchColumn();
         $sectionRow = $pdo->query('SELECT COUNT(*) AS sections, COUNT(DISTINCT page_slug) AS pages FROM sections')->fetch();
         if (is_array($sectionRow)) {
             $sectionCount = (int) $sectionRow['sections'];

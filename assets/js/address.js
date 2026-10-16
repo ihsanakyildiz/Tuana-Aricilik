@@ -114,10 +114,12 @@
             }
         });
 
-        var invoiceKind = root.querySelector("[name='invoice_kind']");
-        var taxOffice = root.querySelector("[name='invoice_tax_office']");
+        var form = root.closest("form") || root;
+        var invoiceKind = root.querySelector("[name='invoice_kind']") || (form.getAttribute("data-invoice-bound") === "1" ? null : form.querySelector("[name='invoice_kind']"));
+        var taxOffice = invoiceKind ? form.querySelector("[name='invoice_tax_office']") : null;
         if (invoiceKind && taxOffice) {
-            var sameAddress = root.querySelector("#invoice-same");
+            form.setAttribute("data-invoice-bound", "1");
+            var sameAddress = form.querySelector("#invoice-same");
             var syncInvoiceKind = function () {
                 var corporate = invoiceKind.value === "kurumsal";
                 taxOffice.disabled = !corporate;

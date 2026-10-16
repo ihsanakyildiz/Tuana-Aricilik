@@ -15,17 +15,21 @@ if (preg_match('#/odeme-kart/$#', $rawPath) === 1) {
 }
 
 public_maintenance();
-MemberAccount::requireLogin();
+MemberAccount::boot(true);
 header('X-Robots-Tag: noindex, follow');
 header('Cache-Control: no-store');
 
-$member = MemberAccount::current();
+$access = (string) ($_GET['anahtar'] ?? $_POST['anahtar'] ?? '');
+if (strlen($access) > 64) {
+    $access = '';
+}
 $orderNo = (string) ($_GET['no'] ?? $_POST['no'] ?? '');
-$order = $member === null ? null : OrderBook::findForMember($orderNo, (int) $member['id']);
+$order = OrderBook::forViewer($orderNo, $access);
+$member = MemberAccount::current();
 $missing = $order === null || (string) $order['payment_method'] !== 'kart';
 
 if (!$missing && (string) $order['status'] === 'odendi') {
-    MemberAccount::redirect('tesekkur?no=' . rawurlencode($orderNo));
+    MemberAccount::redirect('tesekkur?' . OrderBook::resumeQuery($order));
 }
 
 $errors = [];
@@ -33,20 +37,25 @@ if (!$missing && (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST')) {
     if (!MemberAccount::checkCsrf(isset($_POST['csrf']) ? (string) $_POST['csrf'] : null)) {
         $errors[] = 'Oturum doğrulanamadı. Sayfayı yenileyip yeniden dene.';
     } elseif ((string) ($_POST['action'] ?? '') === 'cancel') {
-        $errors = OrderBook::cancelCard($orderNo, (int) $member['id']);
+        $errors = OrderBook::cancelCard($orderNo, (int) $order['member_id']);
         if ($errors === []) {
-            MemberAccount::redirect('odeme-sonuc?no=' . rawurlencode($orderNo));
+            MemberAccount::redirect('odeme-sonuc?' . OrderBook::resumeQuery($order));
         }
     } else {
         $errors[] = 'Bu işlem tanınmıyor.';
     }
-    $order = OrderBook::findForMember($orderNo, (int) $member['id']);
+    $order = OrderBook::forViewer($orderNo, $access);
+    $missing = !is_array($order) || (string) ($order['payment_method'] ?? '') !== 'kart';
 }
 
 $token = null;
 $tokenError = '';
-if (!$missing && is_array($order) && (string) $order['status'] === 'odeme_bekliyor' && is_array($member)) {
-    $started = Paytr::token($order, $member);
+$payer = ['id' => 0, 'email' => is_array($order) ? (string) ($order['email'] ?? '') : ''];
+if (is_array($member) && is_array($order) && (int) $order['member_id'] > 0 && (int) $member['id'] === (int) $order['member_id']) {
+    $payer = $member;
+}
+if (!$missing && is_array($order) && (string) $order['status'] === 'odeme_bekliyor') {
+    $started = Paytr::token($order, $payer);
     $token = $started['token'];
     $tokenError = $started['error'];
 }
@@ -94,10 +103,13 @@ require __DIR__ . '/partials/shop-banner.php';
                 <iframe id="paytriframe" class="paytr-frame" title="PayTR güvenli ödeme" src="<?= e('https://www.paytr.com/odeme/guvenli/' . $token) ?>" frameborder="0" scrolling="yes"></iframe>
             <?php endif; ?>
             <?php if ((string) $order['status'] === 'odeme_bekliyor'): ?>
-                <form method="post" action="<?= url('/odeme-kart?no=' . rawurlencode($orderNo)) ?>">
+                <form method="post" action="<?= url('/odeme-kart?' . OrderBook::resumeQuery($order)) ?>">
                     <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
                     <input type="hidden" name="action" value="cancel">
                     <input type="hidden" name="no" value="<?= e($orderNo) ?>">
+                    <?php if ((string) ($order['access'] ?? '') !== ''): ?>
+                        <input type="hidden" name="anahtar" value="<?= e((string) $order['access']) ?>">
+                    <?php endif; ?>
                     <button class="btn btn-line" type="submit">Ödemeden vazgeç</button>
                 </form>
             <?php endif; ?>

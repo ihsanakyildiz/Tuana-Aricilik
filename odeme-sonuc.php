@@ -14,13 +14,16 @@ if (preg_match('#/odeme-sonuc/$#', $rawPath) === 1) {
 }
 
 public_maintenance();
-MemberAccount::requireLogin();
+MemberAccount::boot(true);
 header('X-Robots-Tag: noindex, follow');
 header('Cache-Control: no-store');
 
-$member = MemberAccount::current();
+$access = (string) ($_GET['anahtar'] ?? '');
+if (strlen($access) > 64) {
+    $access = '';
+}
 $orderNo = (string) ($_GET['no'] ?? '');
-$order = $member === null ? null : OrderBook::findForMember($orderNo, (int) $member['id']);
+$order = OrderBook::forViewer($orderNo, $access);
 if ($order === null || (string) $order['payment_method'] !== 'kart') {
     http_response_code(404);
     $pageTitle = 'Sayfa bulunamadı';
@@ -33,7 +36,7 @@ if ($order === null || (string) $order['payment_method'] !== 'kart') {
 }
 
 if ((string) $order['status'] === 'odendi') {
-    MemberAccount::redirect('tesekkur?no=' . rawurlencode($orderNo));
+    MemberAccount::redirect('tesekkur?' . OrderBook::resumeQuery($order));
 }
 
 $pageTitle = 'Ödeme sonucu';
@@ -63,9 +66,13 @@ require __DIR__ . '/partials/shop-banner.php';
             <?php require __DIR__ . '/partials/order-summary.php'; ?>
             <p class="checkout-actions">
                 <?php if ($waiting): ?>
-                    <a class="btn" href="<?= url('/odeme-kart?no=' . rawurlencode($orderNo)) ?>">Ödeme sayfasına dön</a>
+                    <a class="btn" href="<?= url('/odeme-kart?' . OrderBook::resumeQuery($order)) ?>">Ödeme sayfasına dön</a>
                 <?php endif; ?>
-                <a class="btn btn-line" href="<?= url('/siparislerim?no=' . rawurlencode($orderNo)) ?>">Siparişlerim</a>
+                <?php if ((int) $order['member_id'] > 0): ?>
+                    <a class="btn btn-line" href="<?= url('/siparislerim?no=' . rawurlencode($orderNo)) ?>">Siparişlerim</a>
+                <?php else: ?>
+                    <a class="btn btn-line" href="<?= url('/urunler') ?>">Alışverişe dön</a>
+                <?php endif; ?>
             </p>
         </div>
     </section>

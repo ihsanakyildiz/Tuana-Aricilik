@@ -12,7 +12,7 @@ if ($was !== '' && (float) $was > 0 && (float) $selling > 0 && (float) $selling 
 $available = empty($card['stock_track']) || (int) ($card['stock_qty'] ?? 0) > 0;
 $productPath = '/urun/' . rawurlencode((string) ($card['key'] ?? ''));
 $orderPath = '/siparis?urun=' . rawurlencode((string) ($card['key'] ?? ''));
-$buyPath = MemberAccount::check() ? $orderPath : '/uye-giris?sonraki=' . rawurlencode($orderPath);
+$buyPath = $orderPath;
 $title = (string) ($card['title'] ?? '');
 $cardTag = (isset($cardTag) && $cardTag === 'h3') ? 'h3' : 'h2';
 ?>

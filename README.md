@@ -8,7 +8,7 @@ Kod GitHub’da durur. Veritabanı, yönetici şifresi ve ödeme anahtarları de
 
 - Ana sayfa, klasik sayfalar, blog ve ürün vitrini yönetim panelinden düzenlenir.
 - Ürünlerin kategorisi, fiyatı, indirimli fiyatı, stok takibi ve görsel galerisi vardır.
-- Üye kaydı, giriş, hesap bilgisi, kargo adresi ve bireysel ya da kurumsal fatura tutulur.
+- Üye kaydı, giriş, hesap bilgisi, kargo adresi ve bireysel ya da kurumsal fatura tutulur. Hesap açmak zorunlu değildir; müşteri üye olmadan da sipariş verebilir.
 - İl, ilçe, mahalle ve köy listesinden adres seçilir.
 - Sipariş tek üründür. Adet 1 ile 99 arasındadır.
 - Ödeme yöntemi kredi kartı (PayTR iFrame), havale ya da elden teslim olabilir. Hangi yöntemlerin açık olduğu panelden seçilir.

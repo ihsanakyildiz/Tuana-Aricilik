@@ -237,7 +237,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                         <?php endif; ?>
                         <div class="catalog-card-body">
                             <strong><?= e((string) $row['order_no']) ?></strong>
-                            <small><?= e($buyer) ?></small>
+                            <small><?= e($buyer) ?><?= (int) $row['member_id'] === 0 ? ' · Üye olmadan' : '' ?></small>
                             <b><?= e($money((string) $row['total'])) ?></b>
                             <span class="catalog-status <?= e($orderStatusClass((string) $row['status'])) ?>"><?= e(OrderBook::statusLabel((string) $row['status'])) ?></span>
                             <div class="catalog-actions">
@@ -275,8 +275,9 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                             <tr>
                                 <td><a href="<?= root_url('admin/siparisler.php?no=' . rawurlencode((string) $row['order_no'])) ?>"><?= e((string) $row['order_no']) ?></a></td>
                                 <td>
-                                    <strong><?= e($buyer) ?></strong>
-                                    <?php if ((string) $row['email'] !== ''): ?><small class="catalog-sub"><?= e((string) $row['email']) ?></small><?php endif; ?>
+                            <strong><?= e($buyer) ?></strong>
+                            <?php if ((int) $row['member_id'] === 0): ?><small class="catalog-sub">Üye olmadan</small><?php endif; ?>
+                            <?php if ((string) $row['email'] !== ''): ?><small class="catalog-sub"><?= e((string) $row['email']) ?></small><?php endif; ?>
                                 </td>
                                 <td>
                                     <div class="catalog-product">

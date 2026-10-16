@@ -139,12 +139,8 @@ require __DIR__ . '/partials/shop-banner.php';
                 <?php endif; ?>
                 <p class="shop-stock<?= $available ? '' : ' is-out' ?>"><?= $available ? 'Stokta' : 'Tükendi' ?></p>
                 <?php if ($available): ?>
-                    <?php
-                    $buyHref = MemberAccount::check()
-                        ? '/siparis?urun=' . rawurlencode((string) $product['key'])
-                        : '/uye-giris?sonraki=' . rawurlencode('/siparis?urun=' . $product['key']);
-                    ?>
-                    <a class="btn" href="<?= url($buyHref) ?>">Satın al</a>
+                    <a class="btn" href="<?= url('/siparis?urun=' . rawurlencode((string) $product['key'])) ?>">Satın al</a>
+                    <p class="shop-meta">Üye olmadan da sipariş verebilirsin.</p>
                 <?php else: ?>
                     <span class="btn shop-sold">Tükendi</span>
                 <?php endif; ?>

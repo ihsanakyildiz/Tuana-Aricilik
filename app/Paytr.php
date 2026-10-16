@@ -162,7 +162,7 @@ final class Paytr
         $currency = 'TL';
         $hashStr = $config['merchant_id'] . $ip . $orderNo . $email . $amount . $basket . $noInstallment . $maxInstallment . $currency . $testMode;
         $token = base64_encode(hash_hmac('sha256', $hashStr . $config['merchant_salt'], $config['merchant_key'], true));
-        $return = absolute_url('/odeme-sonuc') . '?no=' . rawurlencode($orderNo);
+        $return = absolute_url('/odeme-sonuc') . '?' . OrderBook::resumeQuery($order);
         $post = [
             'merchant_id' => $config['merchant_id'],
             'user_ip' => $ip,
