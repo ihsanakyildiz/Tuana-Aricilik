@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 require dirname(__DIR__) . '/app/Auth.php';
-require dirname(__DIR__) . '/app/OrderBook.php';
-require dirname(__DIR__) . '/app/MemberAccount.php';
+require_once dirname(__DIR__) . '/app/OrderBook.php';
+require_once dirname(__DIR__) . '/app/MemberAccount.php';
 require_once dirname(__DIR__) . '/app/Geliver.php';
 
 Auth::boot();
