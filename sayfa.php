@@ -8,6 +8,10 @@ require __DIR__ . '/app/CategoryEditor.php';
 public_maintenance();
 
 $slug = request_slug();
+if ($slug === 'iletisim') {
+    require __DIR__ . '/iletisim.php';
+    return;
+}
 $rawPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $relativePath = $rawPath;
 $publicBase = base_path();
