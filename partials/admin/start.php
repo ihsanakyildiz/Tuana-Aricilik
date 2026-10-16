@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/icons.php';
 require_once dirname(__DIR__, 2) . '/app/Auth.php';
+require_once dirname(__DIR__, 2) . '/app/Notices.php';
 
 Auth::boot();
 Auth::requireLogin(!empty($allowPasswordChange));
+$openNotice = (int) ($_GET['bildirim'] ?? 0);
+if ($openNotice > 0) {
+    Notices::markRead($openNotice);
+}
+$adminNotices = Notices::recent(8);
+$adminUnread = Notices::unreadCount();
 $adminFlash = Auth::pullFlash();
 $adminName = Auth::username();
 if ($adminName === '') {
@@ -65,6 +72,7 @@ $adminNav = [
             ['id' => 'konumlar', 'label' => 'Adres listesi', 'icon' => 'globe', 'href' => root_url('admin/konumlar.php')],
             ['id' => 'kargo', 'label' => 'Kargo', 'icon' => 'archive', 'href' => root_url('admin/kargo.php')],
             ['id' => 'odeme-yontem', 'label' => 'Ödeme', 'icon' => 'card', 'href' => root_url('admin/odeme.php')],
+            ['id' => 'bildirimler', 'label' => 'Bildirimler', 'icon' => 'bell', 'href' => root_url('admin/bildirimler.php')],
             ['id' => 'hesap', 'label' => 'Hesap', 'icon' => 'lock', 'href' => root_url('admin/hesap.php')],
         ],
     ],
@@ -175,6 +183,7 @@ $renderNavLink = static function (array $item, string $activeNav): void {
                             <a href="<?= root_url('admin/konumlar.php') ?>">Adres listesi</a>
                             <a href="<?= root_url('admin/kargo.php') ?>">Kargo seçenekleri</a>
                             <a href="<?= root_url('admin/odeme.php') ?>">Ödeme yöntemleri</a>
+                            <a href="<?= root_url('admin/bildirimler.php') ?>">Bildirimler</a>
                             <a href="<?= root_url('admin/hesap.php') ?>">Hesap</a>
                             <a href="<?= root_url('admin/') ?>">Panele dön</a>
                             <a href="<?= root_url('/') ?>" target="_blank" rel="noopener">Siteyi görüntüle</a>
@@ -210,22 +219,25 @@ $renderNavLink = static function (array $item, string $activeNav): void {
             <div class="menu" data-menu>
                 <button class="icon-btn" type="button" aria-expanded="false" aria-label="Bildirimler">
                     <?= admin_icon('bell') ?>
-                    <span class="dot"></span>
+                    <?php if ($adminUnread > 0): ?><span class="dot"></span><?php endif; ?>
                 </button>
                 <div class="menu-panel menu-panel-right notes" hidden>
                     <h3>Bildirimler</h3>
-                    <a href="#" data-soon="Yorumlar">
-                        <strong>Yeni yorum bekliyor</strong>
-                        <span>Bal yazısına bir yorum bırakıldı.</span>
-                    </a>
-                    <a href="#" data-soon="Stok">
-                        <strong>Stok azaldı</strong>
-                        <span>Çiçek balı için stok uyarısı var.</span>
-                    </a>
-                    <a href="#" data-soon="Mesajlar">
-                        <strong>İletişim formu</strong>
-                        <span>Yeni bir mesaj gelen kutusunda.</span>
-                    </a>
+                    <?php if ($adminNotices === []): ?>
+                        <p class="notes-empty">Henüz bildirim yok.</p>
+                    <?php else: ?>
+                        <?php foreach ($adminNotices as $notice): ?>
+                            <?php
+                            $target = (string) $notice['href'];
+                            $join = str_contains($target, '?') ? '&' : '?';
+                            ?>
+                            <a class="<?= $notice['read'] ? '' : 'is-new' ?>" href="<?= root_url($target . $join . 'bildirim=' . (int) $notice['id']) ?>">
+                                <strong><?= e((string) $notice['title']) ?></strong>
+                                <span><?= e((string) $notice['body']) ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <a href="<?= root_url('admin/bildirimler.php') ?>">Bildirim ayarları</a>
                 </div>
             </div>
 

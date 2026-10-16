@@ -95,6 +95,7 @@ Adres: `/admin/`. Giriş `/admin/giris.php`.
 | Adres listesi | İl, ilçe, mahalle ve köy |
 | Kargo | Müşterinin seçtiği firma ve ücret listesi, Geliver ayarı |
 | Ödeme | Kart, havale, elden teslim ve PayTR bilgileri |
+| Bildirimler | SMTP hesabı, deneme e-postası, yönetici haberleri, müşteriye sipariş ve kargo e-postası |
 | Hesap | Yönetici şifresi |
 
 ## Ziyaretçi adresleri

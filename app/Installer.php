@@ -166,6 +166,20 @@ final class Installer
         self::ensureColumn($pdo, 'orders', 'refunded', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
         self::ensureColumn($pdo, 'orders', 'refund_json', 'LONGTEXT NULL');
         self::ensureColumn($pdo, 'orders', 'geliver_json', 'LONGTEXT NULL');
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS notices (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                kind VARCHAR(16) NOT NULL,
+                title VARCHAR(160) NOT NULL,
+                body VARCHAR(240) NOT NULL,
+                href VARCHAR(180) NOT NULL DEFAULT "",
+                is_read TINYINT(1) NOT NULL DEFAULT 0,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_notice_new (is_read, id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
     }
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void

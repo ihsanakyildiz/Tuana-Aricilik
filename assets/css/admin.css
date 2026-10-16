@@ -322,6 +322,13 @@ svg { display: block; }
 .notes { width: 300px; }
 .notes a { display: grid; gap: 2px; }
 .notes span { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.notes a.is-new { background: #f6f1fb; }
+.notes-empty { margin: 8px 12px 12px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.notice-list { margin: 0; padding: 0; list-style: none; }
+.notice-list li { border-top: 1px solid var(--line); }
+.notice-list a { display: grid; gap: 2px; padding: 10px 0; color: inherit; text-decoration: none; }
+.notice-list span { color: var(--muted); font-size: 13px; font-weight: 600; }
+.notice-list li.is-new strong { color: #6d28d9; }
 .user-menu { width: 210px; }
 
 .page-head {

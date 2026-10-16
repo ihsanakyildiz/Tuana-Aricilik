@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/LocationCatalog.php';
+require_once __DIR__ . '/Notices.php';
 
 final class MemberAccount
 {
@@ -232,8 +233,10 @@ final class MemberAccount
             'INSERT INTO members (email, password_hash, first_name, last_name, phone, profile) VALUES (?, ?, ?, ?, ?, ?)'
         );
         $insert->execute([$email, $hash, $first, $last, $phone, encode_value(self::blankProfile())]);
+        $memberId = (int) $pdo->lastInsertId();
         self::noteRegister();
-        self::establish((int) $pdo->lastInsertId());
+        Notices::member($memberId, $first . ' ' . $last, $email, $phone);
+        self::establish($memberId);
 
         return [];
     }

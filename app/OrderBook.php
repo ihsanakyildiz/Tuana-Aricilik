@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/ProductEditor.php';
 require_once __DIR__ . '/MemberAccount.php';
+require_once __DIR__ . '/Notices.php';
 require_once __DIR__ . '/Paytr.php';
 require_once __DIR__ . '/Geliver.php';
 
@@ -370,6 +371,10 @@ final class OrderBook
         if (is_array($order) && (int) ($member['id'] ?? 0) === 0) {
             self::grantGuest($orderNo);
         }
+        if (is_array($order)) {
+            Notices::order($order);
+            Notices::customerPlaced($order);
+        }
 
         return ['errors' => [], 'order' => $order];
     }
@@ -434,6 +439,8 @@ final class OrderBook
         if (!$pdo instanceof PDO) {
             return ['Sipariş durumu güncellenemedi.'];
         }
+        $previous = '';
+        $changed = false;
         try {
             $pdo->beginTransaction();
             $stmt = $pdo->prepare('SELECT product_key, qty, status, stock_held FROM orders WHERE order_no = ? LIMIT 1 FOR UPDATE');
@@ -445,6 +452,7 @@ final class OrderBook
                 return ['Sipariş bulunamadı.'];
             }
             $current = (string) $row['status'];
+            $previous = $current;
             if ($current === $status) {
                 $pdo->commit();
 
@@ -469,6 +477,7 @@ final class OrderBook
             }
             $update = $pdo->prepare('UPDATE orders SET status = ?, stock_held = ? WHERE order_no = ?');
             $update->execute([$status, $held ? 1 : 0, $orderNo]);
+            $changed = true;
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -476,6 +485,12 @@ final class OrderBook
             }
 
             return ['Sipariş durumu güncellenemedi.'];
+        }
+        if ($changed) {
+            $fresh = self::find($orderNo);
+            if (is_array($fresh)) {
+                Notices::customerMoved($fresh, $previous, (string) ($fresh['geliver']['tracking_number'] ?? ''));
+            }
         }
 
         return [];
@@ -506,6 +521,7 @@ final class OrderBook
         if (!$pdo instanceof PDO) {
             return 'missing';
         }
+        $updated = false;
         try {
             $pdo->beginTransaction();
             $stmt = $pdo->prepare(
@@ -542,6 +558,7 @@ final class OrderBook
             $collected = $paid ? self::fromCents($paidCents) : '0.00';
             $update = $pdo->prepare('UPDATE orders SET status = ?, stock_held = ?, paytr_note = ?, paytr_collected = ? WHERE order_no = ?');
             $update->execute([$status, $held ? 1 : 0, mb_substr($note, 0, 180), $collected, $orderNo]);
+            $updated = true;
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -549,6 +566,12 @@ final class OrderBook
             }
 
             return 'missing';
+        }
+        if ($updated) {
+            $fresh = self::find($orderNo);
+            if (is_array($fresh)) {
+                Notices::customerMoved($fresh, 'odeme_bekliyor', (string) ($fresh['geliver']['tracking_number'] ?? ''));
+            }
         }
 
         return 'ok';
@@ -1154,9 +1177,12 @@ final class OrderBook
             return ['Kargo kaydı güncellenemedi.'];
         }
         $clean = self::geliverView(encode_value($state));
+        $previous = '';
+        $previousTracking = '';
+        $saved = false;
         try {
             $pdo->beginTransaction();
-            $stmt = $pdo->prepare('SELECT status FROM orders WHERE order_no = ? LIMIT 1 FOR UPDATE');
+            $stmt = $pdo->prepare('SELECT status, geliver_json FROM orders WHERE order_no = ? LIMIT 1 FOR UPDATE');
             $stmt->execute([$orderNo]);
             $row = $stmt->fetch();
             if (!is_array($row)) {
@@ -1165,9 +1191,12 @@ final class OrderBook
                 return ['Sipariş bulunamadı.'];
             }
             $current = (string) $row['status'];
+            $previous = $current;
+            $previousTracking = (string) (self::geliverView($row['geliver_json'] ?? '')['tracking_number'] ?? '');
             $status = $next !== null && self::geliverCanAdvance($current, $next) ? $next : $current;
             $update = $pdo->prepare('UPDATE orders SET status = ?, geliver_json = ? WHERE order_no = ?');
             $update->execute([$status, encode_value($clean), $orderNo]);
+            $saved = true;
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -1175,6 +1204,13 @@ final class OrderBook
             }
 
             return ['Kargo kaydı güncellenemedi.'];
+        }
+        $tracking = (string) ($clean['tracking_number'] ?? '');
+        if ($saved && ($status !== $previous || ($tracking !== '' && $tracking !== $previousTracking))) {
+            $fresh = self::find($orderNo);
+            if (is_array($fresh)) {
+                Notices::customerMoved($fresh, $previous, $previousTracking);
+            }
         }
 
         return [];
@@ -1251,6 +1287,8 @@ final class OrderBook
         if (!$pdo instanceof PDO) {
             return 'İade PayTR tarafında oluştu ama sipariş kaydı güncellenemedi.';
         }
+        $previous = '';
+        $changed = false;
         try {
             $pdo->beginTransaction();
             $stmt = $pdo->prepare(
@@ -1279,6 +1317,7 @@ final class OrderBook
                 ProductEditor::moneyCents(number_format((float) $row['paytr_collected'], 2, '.', ''))
             );
             $status = (string) $row['status'];
+            $previous = $status;
             $held = (int) $row['stock_held'] === 1;
             if ($refunded >= $cap && $status !== 'iptal') {
                 if ($held) {
@@ -1300,6 +1339,7 @@ final class OrderBook
                 mb_substr($note, 0, 180),
                 $orderNo,
             ]);
+            $changed = $status !== $previous;
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -1307,6 +1347,12 @@ final class OrderBook
             }
 
             return 'İade PayTR tarafında oluştu ama sipariş kaydı güncellenemedi.';
+        }
+        if ($changed) {
+            $fresh = self::find($orderNo);
+            if (is_array($fresh)) {
+                Notices::customerMoved($fresh, $previous, (string) ($fresh['geliver']['tracking_number'] ?? ''));
+            }
         }
 
         return '';
