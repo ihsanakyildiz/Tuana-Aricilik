@@ -191,6 +191,7 @@ $todayRevenue = 0.0;
 $waiting = 0;
 $members = 0;
 $buyers = 0;
+$guestBuyers = 0;
 $published = 0;
 $draft = 0;
 $soldOut = 0;
@@ -299,6 +300,18 @@ try {
 
         $members = (int) $pdo->query('SELECT COUNT(*) FROM members')->fetchColumn();
         $buyers = (int) $pdo->query("SELECT COUNT(DISTINCT member_id) FROM orders WHERE member_id > 0 AND status NOT IN ('iptal', 'iade')")->fetchColumn();
+        $guestEmails = [];
+        $guestStmt = $pdo->query("SELECT order_no, shipping_json FROM orders WHERE member_id = 0 AND status NOT IN ('iptal', 'iade')");
+        foreach ($guestStmt->fetchAll() as $guestRow) {
+            if (!is_array($guestRow)) {
+                continue;
+            }
+            $guestShipping = decode_value((string) ($guestRow['shipping_json'] ?? ''));
+            $guestEmail = is_array($guestShipping) ? strtolower(trim((string) ($guestShipping['email'] ?? ''))) : '';
+            $guestKey = $guestEmail !== '' ? $guestEmail : 'order:' . (string) $guestRow['order_no'];
+            $guestEmails[$guestKey] = true;
+        }
+        $guestBuyers = count($guestEmails);
         $sectionRow = $pdo->query('SELECT COUNT(*) AS sections, COUNT(DISTINCT page_slug) AS pages FROM sections')->fetch();
         if (is_array($sectionRow)) {
             $sectionCount = (int) $sectionRow['sections'];
@@ -540,7 +553,14 @@ if ($soldOut > 0) {
 }
 $orderNote = $waiting > 0 ? $countLabel($waiting) . ' ödeme bekliyor' : 'İptal hariç';
 $revenueNote = ($todayRevenue > 0 && abs($todayRevenue - $revenueAll) < 0.001) ? 'Tamamı bugün' : 'Bugün ' . $money($todayRevenue);
-$memberNote = $buyers > 0 ? $countLabel($buyers) . ' sipariş verdi' : 'Kayıtlı üye';
+$memberBits = [];
+if ($buyers > 0) {
+    $memberBits[] = $countLabel($buyers) . ' üye sipariş verdi';
+}
+if ($guestBuyers > 0) {
+    $memberBits[] = $countLabel($guestBuyers) . ' üye olmadan';
+}
+$memberNote = $memberBits !== [] ? implode(' · ', $memberBits) : 'Kayıtlı üye';
 $enabledNote = $enabledPayments === [] ? 'Yöntem kapalı' : implode(', ', array_values($enabledPayments));
 $siteName = (string) setting('site_name', 'Tuana Arıcılık');
 

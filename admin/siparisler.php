@@ -77,6 +77,10 @@ require dirname(__DIR__) . '/partials/admin/start.php';
     if (!array_key_exists($paymentFilter, OrderBook::payments())) {
         $paymentFilter = '';
     }
+    $buyerFilter = is_string($_GET['uye'] ?? null) ? $_GET['uye'] : '';
+    if (!in_array($buyerFilter, ['uye', 'misafir'], true)) {
+        $buyerFilter = '';
+    }
     $pageSize = is_string($_GET['adet'] ?? null) ? (int) $_GET['adet'] : 8;
     if (!in_array($pageSize, [8, 16, 32], true)) {
         $pageSize = 8;
@@ -90,6 +94,13 @@ require dirname(__DIR__) . '/partials/admin/start.php';
             continue;
         }
         if ($paymentFilter !== '' && (string) $row['payment_method'] !== $paymentFilter) {
+            continue;
+        }
+        $guestOrder = (int) $row['member_id'] === 0;
+        if ($buyerFilter === 'uye' && $guestOrder) {
+            continue;
+        }
+        if ($buyerFilter === 'misafir' && !$guestOrder) {
             continue;
         }
         if ($needle !== '') {
@@ -128,11 +139,12 @@ require dirname(__DIR__) . '/partials/admin/start.php';
 
         return $label !== '' ? $label : '0,00 TL';
     };
-    $catalogUrl = static function (array $extra = []) use ($query, $statusFilter, $paymentFilter, $pageSize, $view, $page): string {
+    $catalogUrl = static function (array $extra = []) use ($query, $statusFilter, $paymentFilter, $buyerFilter, $pageSize, $view, $page): string {
         $params = [
             'q' => $query,
             'durum' => $statusFilter,
             'odeme' => $paymentFilter,
+            'uye' => $buyerFilter,
             'adet' => (string) $pageSize,
             'gorunum' => $view === 'kart' ? 'kart' : '',
             'sayfa' => (string) $page,
@@ -206,6 +218,11 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                     <option value="<?= e($method) ?>"<?= $paymentFilter === $method ? ' selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
+            <select name="uye" data-auto aria-label="Üyelik">
+                <option value="">Üyelik</option>
+                <option value="uye"<?= $buyerFilter === 'uye' ? ' selected' : '' ?>>Üye</option>
+                <option value="misafir"<?= $buyerFilter === 'misafir' ? ' selected' : '' ?>>Üye olmadan</option>
+            </select>
             <select name="adet" data-auto aria-label="Sayfa boyutu">
                 <?php foreach ([8, 16, 32] as $size): ?>
                     <option value="<?= (string) $size ?>"<?= $pageSize === $size ? ' selected' : '' ?>><?= (string) $size ?></option>
@@ -226,7 +243,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                     <?php
                     $buyer = trim((string) $row['first_name'] . ' ' . (string) $row['last_name']);
                     if ($buyer === '') {
-                        $buyer = (string) $row['email'] !== '' ? (string) $row['email'] : 'Üye';
+                        $buyer = (int) $row['member_id'] === 0 ? 'Üye olmadan' : ((string) $row['email'] !== '' ? (string) $row['email'] : 'Üye');
                     }
                     ?>
                     <article class="catalog-card">
@@ -237,7 +254,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                         <?php endif; ?>
                         <div class="catalog-card-body">
                             <strong><?= e((string) $row['order_no']) ?></strong>
-                            <small><?= e($buyer) ?><?= (int) $row['member_id'] === 0 ? ' · Üye olmadan' : '' ?></small>
+                            <small><?= e($buyer) ?><?= (int) $row['member_id'] === 0 && $buyer !== 'Üye olmadan' ? ' · Üye olmadan' : '' ?></small>
                             <b><?= e($money((string) $row['total'])) ?></b>
                             <span class="catalog-status <?= e($orderStatusClass((string) $row['status'])) ?>"><?= e(OrderBook::statusLabel((string) $row['status'])) ?></span>
                             <div class="catalog-actions">
@@ -268,7 +285,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                             <?php
                             $buyer = trim((string) $row['first_name'] . ' ' . (string) $row['last_name']);
                             if ($buyer === '') {
-                                $buyer = 'Üye';
+                                $buyer = (int) $row['member_id'] === 0 ? 'Üye olmadan' : 'Üye';
                             }
                             $stamp = strtotime((string) $row['created_at']);
                             ?>
@@ -276,7 +293,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                                 <td><a href="<?= root_url('admin/siparisler.php?no=' . rawurlencode((string) $row['order_no'])) ?>"><?= e((string) $row['order_no']) ?></a></td>
                                 <td>
                             <strong><?= e($buyer) ?></strong>
-                            <?php if ((int) $row['member_id'] === 0): ?><small class="catalog-sub">Üye olmadan</small><?php endif; ?>
+                            <?php if ((int) $row['member_id'] === 0 && $buyer !== 'Üye olmadan'): ?><small class="catalog-sub">Üye olmadan</small><?php endif; ?>
                             <?php if ((string) $row['email'] !== ''): ?><small class="catalog-sub"><?= e((string) $row['email']) ?></small><?php endif; ?>
                                 </td>
                                 <td>

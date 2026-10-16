@@ -879,6 +879,63 @@ final class OrderBook
         return $rows;
     }
 
+    /** @return list<array{guest:bool,first_name:string,last_name:string,email:string,phone:string,city:string,created_at:string,orders:int,spent:string,order_no:string}> */
+    public static function guests(): array
+    {
+        $pdo = db_pdo();
+        if (!$pdo instanceof PDO) {
+            return [];
+        }
+        $query = $pdo->query(
+            'SELECT order_no, member_id, status, payment_method, product_key, product_title, product_image,
+                    unit_price, qty, cargo_name, cargo_price, total, shipping_json, invoice_json, created_at
+             FROM orders
+             WHERE member_id = 0
+             ORDER BY id DESC'
+        );
+        if ($query === false) {
+            return [];
+        }
+        $groups = [];
+        foreach ($query->fetchAll() as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $order = self::present($row);
+            $email = strtolower(trim((string) $order['email']));
+            $key = $email !== '' ? $email : 'order:' . (string) $order['order_no'];
+            if (!isset($groups[$key])) {
+                $shipping = is_array($order['shipping'] ?? null) ? $order['shipping'] : [];
+                $groups[$key] = [
+                    'guest' => true,
+                    'first_name' => (string) $order['first_name'],
+                    'last_name' => (string) $order['last_name'],
+                    'email' => (string) $order['email'],
+                    'phone' => (string) $order['phone'],
+                    'city' => trim((string) ($shipping['city'] ?? '')),
+                    'created_at' => (string) $order['created_at'],
+                    'orders' => 0,
+                    'spent_cents' => 0,
+                    'order_no' => (string) $order['order_no'],
+                ];
+            }
+            if ((string) $order['status'] === 'iptal') {
+                continue;
+            }
+            $groups[$key]['orders']++;
+            $groups[$key]['spent_cents'] += ProductEditor::moneyCents((string) $order['total']);
+        }
+        $list = [];
+        foreach ($groups as $group) {
+            $cents = (int) $group['spent_cents'];
+            unset($group['spent_cents']);
+            $group['spent'] = intdiv($cents, 100) . '.' . str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
+            $list[] = $group;
+        }
+
+        return $list;
+    }
+
     /** @return list<array<string, mixed>> */
     public static function all(): array
     {

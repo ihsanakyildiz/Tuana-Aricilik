@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 require dirname(__DIR__) . '/app/Auth.php';
-require dirname(__DIR__) . '/app/MemberAccount.php';
-require dirname(__DIR__) . '/app/ProductEditor.php';
+require_once dirname(__DIR__) . '/app/MemberAccount.php';
+require_once dirname(__DIR__) . '/app/ProductEditor.php';
+require_once dirname(__DIR__) . '/app/OrderBook.php';
 require_once dirname(__DIR__) . '/app/LocationCatalog.php';
 
 Auth::boot();
@@ -261,6 +262,10 @@ require dirname(__DIR__) . '/partials/admin/start.php';
         $pageSize = 8;
     }
     $page = max(1, (int) ($_GET['sayfa'] ?? 1));
+    $kind = is_string($_GET['tur'] ?? null) ? $_GET['tur'] : '';
+    if (!in_array($kind, ['uye', 'misafir'], true)) {
+        $kind = '';
+    }
     $needle = mb_strtolower($query, 'UTF-8');
     $spent = [];
     $pdo = db_pdo();
@@ -288,10 +293,28 @@ require dirname(__DIR__) . '/partials/admin/start.php';
 
         return $label !== '' ? $label : '0,00 TL';
     };
+    $people = [];
+    if ($kind !== 'misafir') {
+        foreach ($rows as $row) {
+            $row['guest'] = false;
+            $people[] = $row;
+        }
+    }
+    if ($kind !== 'uye') {
+        foreach (OrderBook::guests() as $guest) {
+            $guest['id'] = 0;
+            $people[] = $guest;
+        }
+    }
+    usort($people, static function (array $left, array $right): int {
+        return strcmp((string) $right['created_at'], (string) $left['created_at']);
+    });
     $matched = [];
-    foreach ($rows as $row) {
-        $shipping = is_array($row['profile']['shipping'] ?? null) ? $row['profile']['shipping'] : [];
-        $city = trim((string) ($shipping['city'] ?? ''));
+    foreach ($people as $row) {
+        $guest = !empty($row['guest']);
+        $city = $guest
+            ? trim((string) ($row['city'] ?? ''))
+            : trim((string) ((is_array($row['profile']['shipping'] ?? null) ? $row['profile']['shipping'] : [])['city'] ?? ''));
         if ($needle !== '') {
             $haystack = mb_strtolower(trim((string) $row['first_name'] . ' ' . (string) $row['last_name'] . ' ' . (string) $row['email'] . ' ' . (string) $row['phone'] . ' ' . $city), 'UTF-8');
             if (mb_strpos($haystack, $needle) === false) {
@@ -306,9 +329,10 @@ require dirname(__DIR__) . '/partials/admin/start.php';
         $page = $pageCount;
     }
     $pageRows = array_slice($matched, ($page - 1) * $pageSize, $pageSize);
-    $catalogUrl = static function (array $extra = []) use ($query, $pageSize, $page): string {
+    $catalogUrl = static function (array $extra = []) use ($query, $kind, $pageSize, $page): string {
         $params = [
             'q' => $query,
+            'tur' => $kind,
             'adet' => (string) $pageSize,
             'sayfa' => (string) $page,
         ];
@@ -334,6 +358,11 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                 <span class="search-ico"><?= admin_icon('search') ?></span>
                 <input name="q" type="search" value="<?= e($query) ?>" placeholder="Müşteri adı, e-posta veya telefon" maxlength="80">
             </label>
+            <select name="tur" data-auto aria-label="Üyelik">
+                <option value="">Tümü</option>
+                <option value="uye"<?= $kind === 'uye' ? ' selected' : '' ?>>Üyeler</option>
+                <option value="misafir"<?= $kind === 'misafir' ? ' selected' : '' ?>>Üye olmadan</option>
+            </select>
             <select name="adet" data-auto aria-label="Sayfa boyutu">
                 <?php foreach ([8, 16, 32] as $size): ?>
                     <option value="<?= (string) $size ?>"<?= $pageSize === $size ? ' selected' : '' ?>><?= (string) $size ?></option>
@@ -343,7 +372,17 @@ require dirname(__DIR__) . '/partials/admin/start.php';
     </div>
     <div class="catalog-sheet">
         <?php if ($pageRows === []): ?>
-            <p class="catalog-empty"><?= $rows === [] ? 'Henüz üye yok.' : 'Bu aramaya uyan müşteri yok.' ?></p>
+            <p class="catalog-empty"><?php
+                if ($needle !== '') {
+                    echo 'Bu aramaya uyan müşteri yok.';
+                } elseif ($kind === 'misafir') {
+                    echo 'Üye olmadan verilmiş sipariş yok.';
+                } elseif ($kind === 'uye' || $rows === []) {
+                    echo 'Henüz üye yok.';
+                } else {
+                    echo 'Henüz müşteri yok.';
+                }
+            ?></p>
         <?php else: ?>
             <div class="catalog-scroll">
                 <table class="catalog-table">
@@ -362,28 +401,49 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                     <tbody>
                         <?php foreach ($pageRows as $row): ?>
                             <?php
+                            $guest = !empty($row['guest']);
                             $name = trim((string) $row['first_name'] . ' ' . (string) $row['last_name']);
-                            $initial = mb_strtoupper(mb_substr((string) $row['first_name'], 0, 1, 'UTF-8'), 'UTF-8');
+                            $initial = mb_strtoupper(mb_substr($name !== '' ? $name : (string) $row['email'], 0, 1, 'UTF-8'), 'UTF-8');
                             $stamp = strtotime((string) $row['created_at']);
-                            $stats = $spent[(int) $row['id']] ?? ['orders' => 0, 'spent' => '0.00'];
+                            $stats = $guest
+                                ? ['orders' => (int) $row['orders'], 'spent' => (string) $row['spent']]
+                                : ($spent[(int) $row['id']] ?? ['orders' => 0, 'spent' => '0.00']);
                             $phone = MemberAccount::phoneLabel((string) $row['phone']);
+                            $avatar = $guest
+                                ? (abs(crc32(strtolower((string) $row['email'] . (string) $row['order_no']))) % 6)
+                                : ((int) $row['id'] % 6);
+                            $orderHref = $guest
+                                ? ((int) $row['orders'] > 1 && (string) $row['email'] !== ''
+                                    ? root_url('admin/siparisler.php?q=' . rawurlencode((string) $row['email']) . '&uye=misafir')
+                                    : root_url('admin/siparisler.php?no=' . rawurlencode((string) $row['order_no'])))
+                                : '';
                             ?>
                             <tr>
                                 <td>
                                     <div class="catalog-product">
-                                        <span class="catalog-avatar is-<?= (string) ((int) $row['id'] % 6) ?>"><?= e($initial !== '' ? $initial : '?') ?></span>
-                                        <span><strong><?= e($name !== '' ? $name : 'Üye') ?></strong></span>
+                                        <span class="catalog-avatar is-<?= (string) $avatar ?>"><?= e($initial !== '' ? $initial : '?') ?></span>
+                                        <span>
+                                            <strong><?= e($name !== '' ? $name : ($guest ? 'Üye olmadan' : 'Üye')) ?></strong>
+                                            <?php if ($guest): ?><span class="catalog-sub">Üye olmadan</span><?php endif; ?>
+                                        </span>
                                     </div>
                                 </td>
                                 <td><?= e((string) $row['email']) ?></td>
                                 <td><?= e($phone !== '' ? $phone : '—') ?></td>
                                 <td><?= (string) $row['city'] !== '' ? e((string) $row['city']) : '—' ?></td>
-                                <td><?= $stamp === false ? '—' : e(date('d.m.Y H:i', $stamp)) ?></td>
+                                <td>
+                                    <?= $stamp === false ? '—' : e(date('d.m.Y H:i', $stamp)) ?>
+                                    <?php if ($guest): ?><span class="catalog-sub">Son sipariş</span><?php endif; ?>
+                                </td>
                                 <td><?= e((string) $stats['orders']) ?></td>
                                 <td class="catalog-price"><strong><?= e($money((string) $stats['spent'])) ?></strong></td>
                                 <td>
                                     <div class="catalog-actions">
-                                        <a class="catalog-icon" href="<?= root_url('admin/musteriler.php?uye=' . (int) $row['id']) ?>" aria-label="Müşteriyi düzenle" title="Düzenle"><?= admin_icon('pencil') ?></a>
+                                        <?php if ($guest): ?>
+                                            <a class="catalog-icon" href="<?= $orderHref ?>" aria-label="Siparişi aç" title="Sipariş"><?= admin_icon('receipt') ?></a>
+                                        <?php else: ?>
+                                            <a class="catalog-icon" href="<?= root_url('admin/musteriler.php?uye=' . (int) $row['id']) ?>" aria-label="Müşteriyi düzenle" title="Düzenle"><?= admin_icon('pencil') ?></a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>

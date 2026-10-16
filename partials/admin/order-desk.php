@@ -8,7 +8,7 @@ $geliver = is_array($order['geliver'] ?? null) ? $order['geliver'] : [];
 $created = strtotime((string) ($order['created_at'] ?? ''));
 $customer = trim((string) ($order['first_name'] ?? '') . ' ' . (string) ($order['last_name'] ?? ''));
 if ($customer === '') {
-    $customer = 'Üye';
+    $customer = (int) ($order['member_id'] ?? 0) > 0 ? 'Üye' : 'Üye olmadan';
 }
 $initial = mb_strtoupper(mb_substr($customer, 0, 1, 'UTF-8'), 'UTF-8');
 $avatar = (int) ($order['member_id'] ?? 0) % 6;
