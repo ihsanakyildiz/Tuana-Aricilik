@@ -29,6 +29,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'email', 'phone', 'whatsapp', 'address', 'hours', 'contact_title',
             'contact_label', 'contact_url', 'copyright', 'footer_about', 'photo_credit',
             'upload_dir', 'theme_dir', 'maintenance_message',
+            'kvkk_label', 'kvkk_url', 'terms_label', 'terms_url',
         ] as $key) {
             if (isset($_POST[$key]) && is_string($_POST[$key])) {
                 $posted[$key] = $_POST[$key];
@@ -197,6 +198,30 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                 <span>Fotoğraf notu</span>
                 <input id="photo-credit" name="photo_credit" type="text" maxlength="180" value="<?= e((string) $values['photo_credit']) ?>">
             </label>
+        </section>
+
+        <section class="settings-card">
+            <h2>Sözleşmeler</h2>
+            <p class="settings-lead">Üye olurken ve siparişi tamamlarken bu iki metin onaylatılır. Onay işaretlenmeden işlem tamamlanmaz.</p>
+            <div class="fields-2">
+                <label class="field" for="kvkk-label">
+                    <span>KVKK bağlantı yazısı</span>
+                    <input id="kvkk-label" name="kvkk_label" type="text" maxlength="80" value="<?= e((string) $values['kvkk_label']) ?>">
+                </label>
+                <label class="field" for="kvkk-url">
+                    <span>KVKK sayfa adresi</span>
+                    <input id="kvkk-url" name="kvkk_url" type="text" maxlength="180" placeholder="/kvkk" value="<?= e((string) $values['kvkk_url']) ?>">
+                </label>
+                <label class="field" for="terms-label">
+                    <span>Sözleşme bağlantı yazısı</span>
+                    <input id="terms-label" name="terms_label" type="text" maxlength="80" value="<?= e((string) $values['terms_label']) ?>">
+                </label>
+                <label class="field" for="terms-url">
+                    <span>Sözleşme sayfa adresi</span>
+                    <input id="terms-url" name="terms_url" type="text" maxlength="180" placeholder="/kullanici-sozlesmesi" value="<?= e((string) $values['terms_url']) ?>">
+                </label>
+            </div>
+            <p class="field-hint">Sayfa adresine site içi bir yol yaz: <code>/kvkk</code>. Tam adres de olur. Ziyaretçi «KVKK Aydınlatma Metni'ni okudum ve kabul ediyorum.» cümlesini görür. Adres boşsa yazı bağlantısız kalır. Bağlantı yeni sekmede açılır.</p>
         </section>
 
         <section class="settings-card">

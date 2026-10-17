@@ -99,6 +99,7 @@ require __DIR__ . '/partials/shop-banner.php';
                         </label>
                     </div>
                     <p class="account-hint">Şifre en az 8 karakter olmalı ve bir harf ile bir rakam içermeli.</p>
+                    <?php require __DIR__ . '/partials/legal-consent.php'; ?>
                     <button class="btn" type="submit">Üye ol</button>
                 </form>
                 <p class="account-switch">Üyeliğin varsa <a href="<?= url('/uye-giris' . ($next === '' ? '' : '?sonraki=' . rawurlencode($next))) ?>">giriş yap</a>.</p>

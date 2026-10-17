@@ -36,6 +36,7 @@ final class SiteSettings
         if (!is_array($button)) {
             $button = [];
         }
+        $legal = self::documents();
 
         return [
             'site_name' => (string) setting('site_name', 'Tuana Arıcılık'),
@@ -61,7 +62,47 @@ final class SiteSettings
             'maintenance' => setting('maintenance', false) === true || setting('maintenance', false) === 1,
             'maintenance_message' => (string) setting('maintenance_message', 'Sitemiz kısa bir bakımda. Birazdan yeniden buradayız.'),
             'socials' => $socials,
+            'kvkk_label' => $legal['kvkk_label'],
+            'kvkk_url' => $legal['kvkk_url'],
+            'terms_label' => $legal['terms_label'],
+            'terms_url' => $legal['terms_url'],
         ];
+    }
+
+    /** @return array{kvkk_label:string,kvkk_url:string,terms_label:string,terms_url:string} */
+    public static function documents(): array
+    {
+        $stored = setting('legal', []);
+        if (!is_array($stored)) {
+            $stored = [];
+        }
+        $kvkkLabel = trim((string) ($stored['kvkk_label'] ?? ''));
+        $termsLabel = trim((string) ($stored['terms_label'] ?? ''));
+
+        return [
+            'kvkk_label' => $kvkkLabel !== '' ? $kvkkLabel : 'KVKK Aydınlatma Metni',
+            'kvkk_url' => trim((string) ($stored['kvkk_url'] ?? '')),
+            'terms_label' => $termsLabel !== '' ? $termsLabel : 'Kullanıcı Sözleşmesi',
+            'terms_url' => trim((string) ($stored['terms_url'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     * @return list<string>
+     */
+    public static function consentErrors(array $input): array
+    {
+        $docs = self::documents();
+        $errors = [];
+        if ((string) ($input['accept_kvkk'] ?? '') !== '1') {
+            $errors[] = $docs['kvkk_label'] . ' onayını işaretle.';
+        }
+        if ((string) ($input['accept_terms'] ?? '') !== '1') {
+            $errors[] = $docs['terms_label'] . ' onayını işaretle.';
+        }
+
+        return $errors;
     }
 
     /**
@@ -122,6 +163,22 @@ final class SiteSettings
         $copyright = self::clip((string) ($post['copyright'] ?? ''), 180);
         $about = self::clip((string) ($post['footer_about'] ?? ''), 600);
         $credit = self::clip((string) ($post['photo_credit'] ?? ''), 180);
+        $kvkkLabel = self::clip((string) ($post['kvkk_label'] ?? ''), 80);
+        if ($kvkkLabel === '') {
+            $kvkkLabel = 'KVKK Aydınlatma Metni';
+        }
+        $termsLabel = self::clip((string) ($post['terms_label'] ?? ''), 80);
+        if ($termsLabel === '') {
+            $termsLabel = 'Kullanıcı Sözleşmesi';
+        }
+        $kvkkUrl = self::pageLink((string) ($post['kvkk_url'] ?? ''));
+        $termsUrl = self::pageLink((string) ($post['terms_url'] ?? ''));
+        if ($kvkkUrl === null) {
+            $errors[] = 'KVKK sayfasının adresi geçersiz.';
+        }
+        if ($termsUrl === null) {
+            $errors[] = 'Kullanıcı sözleşmesi sayfasının adresi geçersiz.';
+        }
         $message = self::clip((string) ($post['maintenance_message'] ?? ''), 240);
         if ($message === '') {
             $message = 'Sitemiz kısa bir bakımda. Birazdan yeniden buradayız.';
@@ -168,6 +225,8 @@ final class SiteSettings
         if ($errors !== []) {
             return $errors;
         }
+        $kvkkUrl = is_string($kvkkUrl) ? $kvkkUrl : '';
+        $termsUrl = is_string($termsUrl) ? $termsUrl : '';
 
         $logo = is_array($logoFile) ? self::storeImage($logoFile, (string) $uploadDir, 'logo') : null;
         $favicon = is_array($faviconFile) ? self::storeImage($faviconFile, (string) $uploadDir, 'favicon') : null;
@@ -221,6 +280,12 @@ final class SiteSettings
             'maintenance' => isset($post['maintenance']),
             'maintenance_message' => $message,
             'socials' => $socials,
+            'legal' => [
+                'kvkk_label' => $kvkkLabel,
+                'kvkk_url' => $kvkkUrl,
+                'terms_label' => $termsLabel,
+                'terms_url' => $termsUrl,
+            ],
         ];
         foreach ($pairs as $key => $value) {
             save_setting($key, $value);
@@ -256,6 +321,19 @@ final class SiteSettings
     {
         return filter_var($url, FILTER_VALIDATE_URL) !== false
             && preg_match('#^https?://#i', $url) === 1;
+    }
+
+    private static function pageLink(string $value): ?string
+    {
+        $value = self::clip($value, 180);
+        if ($value === '' || $value === '#') {
+            return '';
+        }
+        if (str_starts_with($value, '//') || !self::linkOk($value)) {
+            return null;
+        }
+
+        return $value;
     }
 
     private static function linkOk(string $url): bool

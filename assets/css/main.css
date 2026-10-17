@@ -1860,6 +1860,20 @@ body.is-preview .promo-slide { position: relative; top: auto; margin-top: -88px;
 .summary-lines div { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .summary-lines dt, .summary-lines dd { margin: 0; }
 .summary-lines .is-total { margin-top: 12px; padding-top: 12px; border-top: 1px solid #efe7dc; font-size: 18px; font-weight: 800; }
+.legal-consents { display: grid; gap: 10px; margin: 14px 0; }
+.legal-check {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    color: #3a291f;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+    cursor: pointer;
+}
+.legal-check input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #c8922a; }
+.legal-check a { color: #8a5a12; font-weight: 800; text-underline-offset: 2px; }
 .account-panel h3 { margin: 18px 0 8px; font-size: 16px; }
 .order-list { display: grid; gap: 8px; }
 .order-row {

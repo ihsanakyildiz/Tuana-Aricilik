@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/LocationCatalog.php';
 require_once __DIR__ . '/Notices.php';
+require_once __DIR__ . '/SiteSettings.php';
 
 final class MemberAccount
 {
@@ -212,6 +213,9 @@ final class MemberAccount
             $errors[] = $passwordError;
         } elseif ($password !== $confirm) {
             $errors[] = 'Şifreler eşleşmiyor.';
+        }
+        foreach (SiteSettings::consentErrors($input) as $consentError) {
+            $errors[] = $consentError;
         }
         if ($errors !== []) {
             return $errors;

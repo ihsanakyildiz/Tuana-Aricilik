@@ -404,7 +404,10 @@ require __DIR__ . '/partials/shop-banner.php';
                             <div><dt>Kargo</dt><dd data-cargo-amount><?= e($formatCents($cargoCents)) ?></dd></div>
                             <div class="is-total"><dt>Ödenecek tutar</dt><dd data-total><?= e($formatCents($totalCents)) ?></dd></div>
                         </dl>
-                        <?php if ($payMethods !== []): ?><button class="btn" type="submit" data-place>Siparişi tamamla</button><?php endif; ?>
+                        <?php if ($payMethods !== []): ?>
+                            <?php $legalRequired = true; require __DIR__ . '/partials/legal-consent.php'; ?>
+                            <button class="btn" type="submit" data-place>Siparişi tamamla</button>
+                        <?php endif; ?>
                         <a href="<?= url('/siparis?urun=' . rawurlencode($productKey)) ?>">Adrese dön</a>
                     </aside>
                 </form>

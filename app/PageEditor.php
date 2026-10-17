@@ -467,11 +467,6 @@ final class PageEditor
         if ($raw === '') {
             return ['html' => '', 'paragraphs' => []];
         }
-        if (strlen($raw) > 80000) {
-            $errors[] = 'Sayfa çok uzun.';
-
-            return ['html' => '', 'paragraphs' => []];
-        }
         if (preg_match('/<[a-z!\/][^>]*>/i', $raw) !== 1) {
             $paragraphs = [];
             $html = '';

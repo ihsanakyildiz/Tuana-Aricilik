@@ -7,6 +7,7 @@ require_once __DIR__ . '/MemberAccount.php';
 require_once __DIR__ . '/Notices.php';
 require_once __DIR__ . '/Paytr.php';
 require_once __DIR__ . '/Geliver.php';
+require_once __DIR__ . '/SiteSettings.php';
 
 final class OrderBook
 {
@@ -280,6 +281,11 @@ final class OrderBook
                 $cargoName = $chosen['name'];
                 $cargoPrice = $chosen['price'];
             }
+        }
+
+        $consentErrors = SiteSettings::consentErrors($input);
+        if ($consentErrors !== []) {
+            return ['errors' => $consentErrors, 'order' => null];
         }
 
         $profile = is_array($member['profile'] ?? null) ? $member['profile'] : [];
