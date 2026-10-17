@@ -210,7 +210,7 @@ if (trim((string) ($contactButton['label'] ?? '')) === '') {
                 <?php endforeach; ?>
             </ul>
         </nav>
-        <?php $logoClass = ''; require __DIR__ . '/logo.php'; ?>
+        <?php $logoClass = 'brand-header'; require __DIR__ . '/logo.php'; ?>
         <div class="header-tools">
             <ul class="socials">
                 <?php foreach ($socials as $social): ?>
@@ -228,7 +228,7 @@ if (trim((string) ($contactButton['label'] ?? '')) === '') {
                     </li>
                 <?php endforeach; ?>
             </ul>
-            <a class="account-link" href="<?= url(MemberAccount::check() ? '/hesabim' : '/uye-giris') ?>"><?= MemberAccount::check() ? 'Hesabım' : 'Giriş' ?></a>
+            <a class="account-link" href="<?= url(MemberAccount::check() ? '/hesabim' : '/uye-giris') ?>" aria-label="<?= MemberAccount::check() ? 'Hesabım' : 'Giriş' ?>"><?= icon('user') ?></a>
             <?php render_link($contactButton, 'btn btn-gold'); ?>
         </div>
     </div>
