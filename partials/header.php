@@ -32,6 +32,15 @@ $robots = isset($robots) && is_string($robots) && $robots !== '' ? $robots : 'in
 $ogType = isset($ogType) && is_string($ogType) && preg_match('/^[a-z]+$/', $ogType) === 1 ? $ogType : 'website';
 $articlePublished = isset($articlePublished) && is_string($articlePublished) ? $articlePublished : '';
 $jsonLd = isset($jsonLd) && is_array($jsonLd) ? $jsonLd : [];
+$preloadImage = isset($preloadImage) && is_string($preloadImage) ? ltrim(trim($preloadImage), '/') : '';
+if ($preloadImage !== '' && (str_contains($preloadImage, '..') || preg_match('#^assets/(images|uploads)/[A-Za-z0-9_./-]+$#', $preloadImage) !== 1)) {
+    $preloadImage = '';
+}
+$productOffer = isset($productOffer) && is_array($productOffer) ? $productOffer : [];
+$offerPrice = (string) ($productOffer['price'] ?? '');
+if (preg_match('/^\d+\.\d{2}$/', $offerPrice) !== 1) {
+    $offerPrice = '';
+}
 if (!is_array($socials)) {
     $socials = [];
 }
@@ -57,6 +66,9 @@ if (trim((string) ($contactButton['label'] ?? '')) === '') {
     <meta name="theme-color" content="<?= e($themeColor) ?>">
     <link rel="canonical" href="<?= e($canonical) ?>">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="<?= e(absolute_url('/sitemap.xml')) ?>">
+    <?php if ($preloadImage !== ''): ?>
+        <link rel="preload" as="image" href="<?= asset($preloadImage) ?>">
+    <?php endif; ?>
     <meta property="og:url" content="<?= e($canonical) ?>">
     <meta property="og:title" content="<?= e($documentTitle) ?>">
     <meta property="og:description" content="<?= e((string) $metaDescription) ?>">
@@ -65,8 +77,16 @@ if (trim((string) ($contactButton['label'] ?? '')) === '') {
     <?php if ($ogType === 'article' && $articlePublished !== ''): ?>
         <meta property="article:published_time" content="<?= e($articlePublished) ?>">
     <?php endif; ?>
+    <?php if ($ogType === 'product' && $offerPrice !== ''): ?>
+        <meta property="product:price:amount" content="<?= e($offerPrice) ?>">
+        <meta property="product:price:currency" content="TRY">
+    <?php endif; ?>
     <?php if ($shareImage !== ''): ?>
         <meta property="og:image" content="<?= e(absolute_url('/' . ltrim($shareImage, '/'))) ?>">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="<?= e($documentTitle) ?>">
+        <meta name="twitter:description" content="<?= e((string) $metaDescription) ?>">
+        <meta name="twitter:image" content="<?= e(absolute_url('/' . ltrim($shareImage, '/'))) ?>">
     <?php endif; ?>
     <?php if ($jsonLd !== []): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>

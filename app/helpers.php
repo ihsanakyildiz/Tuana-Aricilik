@@ -658,7 +658,7 @@ function post_body_html(string $html): string
         $clean
     );
 
-    return is_string($rendered) ? $rendered : '';
+    return is_string($rendered) ? preg_replace('/<img(?![^>]*\bloading=)/i', '<img loading="lazy" decoding="async"', $rendered) ?? '' : '';
 }
 
 function post_index_enabled(array $post): bool
