@@ -1021,6 +1021,38 @@ function title_spans(array $data): string
     return $html;
 }
 
+function youtube_id(string $url): string
+{
+    $url = trim($url);
+    if ($url === '' || preg_match('#^https?://#i', $url) !== 1) {
+        return '';
+    }
+    $parts = parse_url($url);
+    if (!is_array($parts)) {
+        return '';
+    }
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    if (str_starts_with($host, 'www.')) {
+        $host = substr($host, 4);
+    }
+    if (!in_array($host, ['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'youtube-nocookie.com'], true)) {
+        return '';
+    }
+    $path = (string) ($parts['path'] ?? '');
+    $id = '';
+    if ($host === 'youtu.be') {
+        $id = explode('/', trim($path, '/'))[0] ?? '';
+    } elseif (preg_match('~^/(?:embed|shorts|live|v)/([^/?#]+)~', $path, $match) === 1) {
+        $id = $match[1];
+    } else {
+        $query = [];
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        $id = is_string($query['v'] ?? null) ? $query['v'] : '';
+    }
+
+    return preg_match('/^[A-Za-z0-9_-]{11}$/', $id) === 1 ? $id : '';
+}
+
 function render_link(?array $link, string $class): void
 {
     if (!is_array($link)) {
@@ -1033,9 +1065,13 @@ function render_link(?array $link, string $class): void
     }
 
     $modal = trim((string) ($link['modal'] ?? ''));
+    $youtube = $modal === 'intro' ? youtube_id((string) ($link['url'] ?? '')) : '';
     echo '<a class="' . e($class) . '" href="' . url((string) ($link['url'] ?? '#')) . '"';
     if ($modal !== '') {
         echo ' data-modal="' . e($modal) . '"';
+    }
+    if ($youtube !== '') {
+        echo ' data-youtube="' . e($youtube) . '"';
     }
     echo '>';
     if (($link['icon'] ?? '') === 'play') {

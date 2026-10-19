@@ -100,21 +100,24 @@ if (!is_array($intro)) {
     </div>
 </footer>
 
-<?php if ($intro !== []): ?>
-<dialog class="intro-dialog" id="intro-dialog">
+<dialog class="intro-dialog" id="intro-dialog" aria-label="Tanıtım">
     <form method="dialog">
         <button class="dialog-close" type="submit" aria-label="Kapat">×</button>
     </form>
-    <div class="intro-layout">
-        <?= media_tag((string) ($intro['image'] ?? ''), (string) ($intro['image_alt'] ?? ''), 'intro-photo', true) ?>
-        <div>
-            <p class="eyebrow"><?= e((string) setting('site_name', 'Tuana Arıcılık')) ?></p>
-            <h2><?= e((string) ($intro['title'] ?? '')) ?></h2>
-            <p><?= e((string) ($intro['text'] ?? '')) ?></p>
-        </div>
+    <div class="intro-video" data-youtube-stage hidden>
+        <iframe data-youtube-frame title="Tanıtım videosu" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
     </div>
+    <?php if ($intro !== []): ?>
+        <div class="intro-layout" data-intro-copy>
+            <?= media_tag((string) ($intro['image'] ?? ''), (string) ($intro['image_alt'] ?? ''), 'intro-photo', true) ?>
+            <div>
+                <p class="eyebrow"><?= e((string) setting('site_name', 'Tuana Arıcılık')) ?></p>
+                <h2><?= e((string) ($intro['title'] ?? '')) ?></h2>
+                <p><?= e((string) ($intro['text'] ?? '')) ?></p>
+            </div>
+        </div>
+    <?php endif; ?>
 </dialog>
-<?php endif; ?>
 
 <?php if (!empty($GLOBALS['tuana_db_error']) && (app_config()['debug'] ?? false)): ?>
 <!-- Veritabanı yedeği kullanıldı: <?= e((string) $GLOBALS['tuana_db_error']) ?> -->

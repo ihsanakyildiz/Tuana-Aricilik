@@ -1278,6 +1278,7 @@ body.is-article .page-banner h1 {
     position: absolute;
     top: 10px;
     right: 12px;
+    z-index: 2;
     width: 36px;
     height: 36px;
     border: 0;
@@ -1285,6 +1286,26 @@ body.is-article .page-banner h1 {
     background: #fff;
     cursor: pointer;
     font-size: 24px;
+}
+.intro-dialog.is-video {
+    width: min(960px, calc(100% - 32px));
+    padding: 52px 12px 12px;
+    background: #16120e;
+}
+.intro-dialog.is-video .intro-layout { display: none; }
+.intro-video {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #000;
+}
+.intro-video iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
 }
 
 @media (max-width: 1080px) {

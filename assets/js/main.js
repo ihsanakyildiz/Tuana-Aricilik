@@ -187,12 +187,40 @@
         });
     }
 
+    var introDialog = document.getElementById("intro-dialog");
+
+    function stopIntroVideo() {
+        if (!introDialog) return;
+        var frame = introDialog.querySelector("[data-youtube-frame]");
+        var stage = introDialog.querySelector("[data-youtube-stage]");
+        var copy = introDialog.querySelector("[data-intro-copy]");
+        if (frame) frame.removeAttribute("src");
+        if (stage) stage.hidden = true;
+        if (copy) copy.hidden = false;
+        introDialog.classList.remove("is-video");
+    }
+
+    if (introDialog) {
+        introDialog.addEventListener("close", stopIntroVideo);
+    }
+
     document.querySelectorAll("[data-modal]").forEach(function (trigger) {
         trigger.addEventListener("click", function (event) {
-            var dialog = document.getElementById("intro-dialog");
-            if (!dialog || typeof dialog.showModal !== "function") return;
+            if (!introDialog || typeof introDialog.showModal !== "function") return;
             event.preventDefault();
-            dialog.showModal();
+            var videoId = trigger.getAttribute("data-youtube") || "";
+            var frame = introDialog.querySelector("[data-youtube-frame]");
+            var stage = introDialog.querySelector("[data-youtube-stage]");
+            var copy = introDialog.querySelector("[data-intro-copy]");
+            if (frame && stage && /^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+                frame.src = "https://www.youtube-nocookie.com/embed/" + videoId + "?autoplay=1&rel=0";
+                stage.hidden = false;
+                if (copy) copy.hidden = true;
+                introDialog.classList.add("is-video");
+            } else {
+                stopIntroVideo();
+            }
+            if (!introDialog.open) introDialog.showModal();
         });
     });
 
