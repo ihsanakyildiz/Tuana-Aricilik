@@ -65,6 +65,15 @@ $created = strtotime((string) ($order['created_at'] ?? ''));
     <?php elseif (($order['payment_method'] ?? '') === 'kart'): ?>
         <p>Kart ödemesinin sonucu PayTR bildirimi geldikten sonra kesinleşir.</p>
     <?php endif; ?>
+    <?php $cardFacts = OrderBook::cardFacts($order); ?>
+    <?php if ($cardFacts !== []): ?>
+        <h3>Kart ödemesi</h3>
+        <dl class="summary-lines">
+            <?php foreach ($cardFacts as [$cardLabel, $cardValue]): ?>
+                <div><dt><?= e($cardLabel) ?></dt><dd><?= e($cardValue) ?></dd></div>
+            <?php endforeach; ?>
+        </dl>
+    <?php endif; ?>
     <?php $geliver = is_array($order['geliver'] ?? null) ? $order['geliver'] : []; ?>
     <?php if ((string) ($geliver['tracking_number'] ?? '') !== ''): ?>
         <h3>Kargo takibi</h3>

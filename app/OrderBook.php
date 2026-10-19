@@ -294,7 +294,7 @@ final class OrderBook
         if (empty($member['shipping_ready'])) {
             return ['errors' => ['Sipariş için kargo adresi gerekli.'], 'order' => null];
         }
-        if ((int) ($member['id'] ?? 0) === 0) {
+        if ((string) ($shipping['access'] ?? '') === '') {
             $shipping['access'] = bin2hex(random_bytes(16));
         }
         if ($payment === 'kart') {
@@ -462,16 +462,36 @@ final class OrderBook
             }
         }
         $order = self::find($orderNo);
-        if ($order === null || (int) $order['member_id'] !== 0) {
+        if ($order === null) {
+            return null;
+        }
+        $stored = (string) ($order['access'] ?? '');
+        if ($access !== '' && $stored !== '' && hash_equals($stored, $access)) {
+            return $order;
+        }
+        if ((int) $order['member_id'] !== 0) {
             return null;
         }
         MemberAccount::boot(true);
         $known = $_SESSION['guest_orders'] ?? [];
-        $sessionOk = is_array($known) && isset($known[$orderNo]);
-        $stored = (string) ($order['access'] ?? '');
-        $keyOk = $access !== '' && $stored !== '' && hash_equals($stored, $access);
 
-        return $sessionOk || $keyOk ? $order : null;
+        return is_array($known) && isset($known[$orderNo]) ? $order : null;
+    }
+
+    public static function needsLogin(string $orderNo, bool $cardOnly = false): bool
+    {
+        if (!self::validNo($orderNo) || MemberAccount::current() !== null) {
+            return false;
+        }
+        $order = self::find($orderNo);
+        if ($order === null || (int) $order['member_id'] < 1) {
+            return false;
+        }
+        if ($cardOnly && (string) $order['payment_method'] !== 'kart') {
+            return false;
+        }
+
+        return true;
     }
 
     public static function resumeQuery(array $order): string
@@ -568,7 +588,8 @@ final class OrderBook
         return [];
     }
 
-    public static function applyPaytr(string $orderNo, bool $paid, int $paidCents, string $note): string
+    /** @param array<string, mixed> $card */
+    public static function applyPaytr(string $orderNo, bool $paid, int $paidCents, string $note, array $card = []): string
     {
         if (!self::validNo($orderNo) || $paidCents < 0) {
             return 'missing';
@@ -593,6 +614,9 @@ final class OrderBook
             }
             if ((string) $row['status'] !== 'odeme_bekliyor') {
                 $pdo->commit();
+                if ($card !== []) {
+                    self::storeCard($orderNo, $card);
+                }
 
                 return 'ok';
             }
@@ -623,6 +647,9 @@ final class OrderBook
 
             return 'missing';
         }
+        if ($card !== []) {
+            self::storeCard($orderNo, $card);
+        }
         if ($updated) {
             $fresh = self::find($orderNo);
             if (is_array($fresh)) {
@@ -631,6 +658,86 @@ final class OrderBook
         }
 
         return 'ok';
+    }
+
+    /** @param array<string, mixed> $order
+     *  @return array<string, mixed>
+     */
+    public static function ensureCard(array $order): array
+    {
+        if ((string) ($order['payment_method'] ?? '') !== 'kart' || !self::validNo((string) ($order['order_no'] ?? ''))) {
+            return $order;
+        }
+        $card = is_array($order['paytr'] ?? null) ? $order['paytr'] : [];
+        if (!empty($card['fetched'])) {
+            return $order;
+        }
+        $collected = ProductEditor::moneyCents((string) ($order['paytr_collected'] ?? '0.00'));
+        $waiting = in_array((string) ($order['status'] ?? ''), ['odeme_bekliyor', 'teslimde_odenecek'], true);
+        if ($waiting && $collected < 1) {
+            return $order;
+        }
+        if ((int) ($card['attempted_at'] ?? 0) > time() - 120 || !Paytr::ready()) {
+            return $order;
+        }
+        $found = Paytr::inquiry((string) $order['order_no']);
+        self::storeCard((string) $order['order_no'], $found ?? ['attempted_at' => time()]);
+        $fresh = self::find((string) $order['order_no']);
+
+        return is_array($fresh) ? $fresh : $order;
+    }
+
+    /** @param array<string, mixed> $order
+     *  @return list<array{0:string,1:string}>
+     */
+    public static function cardFacts(array $order): array
+    {
+        if ((string) ($order['payment_method'] ?? '') !== 'kart') {
+            return [];
+        }
+        $card = is_array($order['paytr'] ?? null) ? $order['paytr'] : [];
+        $facts = [];
+        $brand = trim((string) ($card['brand_label'] ?? ''));
+        if ($brand !== '') {
+            $facts[] = ['Banka', $brand];
+        }
+        $pan = trim((string) ($card['pan'] ?? ''));
+        if ($pan !== '') {
+            $facts[] = ['Kart', $pan];
+        }
+        if (isset($card['installments']) && is_numeric($card['installments'])) {
+            $count = (int) $card['installments'];
+            $facts[] = ['Taksit', $count <= 1 ? 'Tek çekim' : (string) $count . ' taksit'];
+        }
+        $basket = (string) ($card['basket'] ?? '');
+        $charged = (string) ($card['charged'] ?? '');
+        $difference = (string) ($card['difference'] ?? '');
+        if ($difference === '') {
+            $collectedCents = ProductEditor::moneyCents((string) ($order['paytr_collected'] ?? ''));
+            $totalCents = ProductEditor::moneyCents((string) ($order['total'] ?? ''));
+            if ($collectedCents > $totalCents && $totalCents > 0) {
+                $basket = (string) $order['total'];
+                $charged = (string) $order['paytr_collected'];
+                $difference = self::fromCents($collectedCents - $totalCents);
+            }
+        }
+        if ($basket !== '' && $charged !== '' && $basket !== $charged) {
+            $label = self::money($basket);
+            if ($label !== '') {
+                $facts[] = ['Sipariş tutarı', $label];
+            }
+        }
+        if ($difference !== '') {
+            $facts[] = ['Vade farkı', $difference === '0.00' ? 'Yok' : (self::money($difference) !== '' ? self::money($difference) : $difference)];
+        }
+        if ($charged !== '') {
+            $label = self::money($charged);
+            if ($label !== '') {
+                $facts[] = ['Tahsil edilen', $label];
+            }
+        }
+
+        return $facts;
     }
 
     /** @return list<string> */
@@ -897,7 +1004,7 @@ final class OrderBook
         $stmt = $pdo->prepare(
             'SELECT order_no, member_id, status, payment_method, product_key, product_title, product_image,
                     unit_price, qty, cargo_name, cargo_price, total, shipping_json, invoice_json, paytr_note,
-                    paytr_collected, refunded, refund_json, geliver_json, created_at
+                    paytr_collected, refunded, refund_json, geliver_json, paytr_json, created_at
              FROM orders
              WHERE order_no = ? AND member_id = ?
              LIMIT 1'
@@ -1031,7 +1138,7 @@ final class OrderBook
         $stmt = $pdo->prepare(
             'SELECT o.order_no, o.member_id, o.status, o.payment_method, o.product_key, o.product_title, o.product_image,
                     o.unit_price, o.qty, o.cargo_name, o.cargo_price, o.total, o.shipping_json, o.invoice_json, o.paytr_note,
-                    o.paytr_collected, o.refunded, o.refund_json, o.geliver_json, o.created_at,
+                    o.paytr_collected, o.refunded, o.refund_json, o.geliver_json, o.paytr_json, o.created_at,
                     m.first_name, m.last_name, m.email, m.phone
              FROM orders o
              LEFT JOIN members m ON m.id = o.member_id
@@ -1156,6 +1263,7 @@ final class OrderBook
             'access' => $access,
             'paytr_note' => (string) ($row['paytr_note'] ?? ''),
             'paytr_collected' => number_format((float) ($row['paytr_collected'] ?? 0), 2, '.', ''),
+            'paytr' => self::paytrRecord((string) ($row['paytr_json'] ?? '')),
             'refunded' => number_format((float) ($row['refunded'] ?? 0), 2, '.', ''),
             'refunds' => self::refundList($row['refund_json'] ?? ''),
             'geliver' => self::geliverView($row['geliver_json'] ?? ''),
@@ -1469,6 +1577,66 @@ final class OrderBook
         }
 
         return '';
+    }
+
+    /** @param array<string, mixed> $incoming */
+    private static function storeCard(string $orderNo, array $incoming): void
+    {
+        if (!self::validNo($orderNo) || $incoming === []) {
+            return;
+        }
+        $pdo = db_pdo();
+        if (!$pdo instanceof PDO) {
+            return;
+        }
+        $stmt = $pdo->prepare('SELECT paytr_json FROM orders WHERE order_no = ? LIMIT 1');
+        $stmt->execute([$orderNo]);
+        $raw = $stmt->fetchColumn();
+        $current = decode_value(is_string($raw) ? $raw : '');
+        if (!is_array($current)) {
+            $current = [];
+        }
+        $save = $pdo->prepare('UPDATE orders SET paytr_json = ? WHERE order_no = ?');
+        $save->execute([encode_value(self::mergeCard($current, $incoming)), $orderNo]);
+    }
+
+    /** @param array<string, mixed> $current
+     *  @param array<string, mixed> $incoming
+     *  @return array<string, mixed>
+     */
+    private static function mergeCard(array $current, array $incoming): array
+    {
+        foreach (['brand_label', 'pan', 'basket', 'charged', 'difference'] as $key) {
+            $value = trim((string) ($incoming[$key] ?? ''));
+            if ($value !== '') {
+                $current[$key] = $value;
+            }
+        }
+        if (isset($incoming['installments']) && is_numeric($incoming['installments'])) {
+            $count = (int) $incoming['installments'];
+            if ($count >= 0 && $count <= 12) {
+                $current['installments'] = $count;
+            }
+        }
+        if (!empty($incoming['fetched'])) {
+            $current['fetched'] = true;
+        }
+        if (isset($incoming['attempted_at'])) {
+            $current['attempted_at'] = (int) $incoming['attempted_at'];
+        }
+        if (array_key_exists('test', $incoming)) {
+            $current['test'] = $incoming['test'] === true;
+        }
+
+        return $current;
+    }
+
+    /** @return array<string, mixed> */
+    private static function paytrRecord(string $raw): array
+    {
+        $decoded = decode_value($raw);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     private static function fromCents(int $cents): string

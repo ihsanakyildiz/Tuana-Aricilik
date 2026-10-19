@@ -104,6 +104,17 @@ $orderNo = (string) ($order['order_no'] ?? '');
                 <div class="is-total"><dt>Toplam</dt><dd><?= e(OrderBook::money((string) $order['total'])) ?></dd></div>
             </dl>
         </section>
+        <?php $cardFacts = OrderBook::cardFacts($order); ?>
+        <?php if ($cardFacts !== []): ?>
+            <section class="sale-card">
+                <h3>Kart ödemesi</h3>
+                <dl class="sale-lines">
+                    <?php foreach ($cardFacts as [$cardLabel, $cardValue]): ?>
+                        <div><dt><?= e($cardLabel) ?></dt><dd><?= e($cardValue) ?></dd></div>
+                    <?php endforeach; ?>
+                </dl>
+            </section>
+        <?php endif; ?>
         <section class="sale-card">
             <h3>Durum</h3>
             <?php if ($progress < 0): ?>

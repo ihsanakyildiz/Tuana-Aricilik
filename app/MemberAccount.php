@@ -292,14 +292,16 @@ final class MemberAccount
         self::$loaded = true;
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', [
-                'expires' => time() - 42000,
-                'path' => (string) ($params['path'] ?? '/'),
-                'secure' => !empty($params['secure']),
-                'httponly' => true,
-                'samesite' => 'Strict',
-            ]);
+            $params = self::cookieParams();
+            foreach (['Lax', 'Strict'] as $sameSite) {
+                setcookie(session_name(), '', [
+                    'expires' => time() - 42000,
+                    'path' => (string) $params['path'],
+                    'secure' => (bool) $params['secure'],
+                    'httponly' => true,
+                    'samesite' => $sameSite,
+                ]);
+            }
         }
         session_destroy();
         self::$booted = false;
@@ -1104,16 +1106,42 @@ final class MemberAccount
             return;
         }
         session_name(self::NAME);
+        session_set_cookie_params(self::cookieParams());
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
+        if (self::withheldCrossSite()) {
+            ini_set('session.use_cookies', '0');
+        }
+        session_start();
+    }
+
+    /** @return array{lifetime:int,path:string,secure:bool,httponly:bool,samesite:string} */
+    private static function cookieParams(): array
+    {
         $path = root_path();
-        session_set_cookie_params([
+
+        return [
             'lifetime' => 0,
             'path' => $path === '' ? '/' : $path,
             'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (string) ($_SERVER['SERVER_PORT'] ?? '') === '443',
             'httponly' => true,
-            'samesite' => 'Strict',
-        ]);
-        ini_set('session.use_strict_mode', '1');
-        ini_set('session.use_only_cookies', '1');
-        session_start();
+            'samesite' => 'Lax',
+        ];
+    }
+
+    private static function withheldCrossSite(): bool
+    {
+        $cookie = $_COOKIE[self::NAME] ?? null;
+        if (is_string($cookie) && $cookie !== '') {
+            return false;
+        }
+        $site = strtolower((string) ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? ''));
+        if ($site === 'cross-site') {
+            return true;
+        }
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        $refHost = strtolower((string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_HOST));
+
+        return $host !== '' && $refHost !== '' && $host !== $refHost;
     }
 }

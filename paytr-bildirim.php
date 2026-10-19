@@ -25,8 +25,15 @@ try {
             $result['order_no'],
             $result['paid'],
             $result['paid_cents'],
-            $result['note']
+            $result['note'],
+            $result['card']
         );
+        if ($applied === 'ok' && $result['paid']) {
+            $fresh = OrderBook::find($result['order_no']);
+            if (is_array($fresh)) {
+                OrderBook::ensureCard($fresh);
+            }
+        }
         if ($applied === 'missing') {
             http_response_code(404);
             echo 'ORDER NOT FOUND';

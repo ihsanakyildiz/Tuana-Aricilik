@@ -24,6 +24,24 @@ if (strlen($access) > 64) {
 }
 $orderNo = (string) ($_GET['no'] ?? '');
 $order = OrderBook::forViewer($orderNo, $access);
+if ($order === null && OrderBook::needsLogin($orderNo, true)) {
+    $pageTitle = 'Giriş gerekli';
+    $metaDescription = '';
+    $canonicalPath = '/odeme-sonuc';
+    $bodyClass = 'is-page is-shop';
+    $robots = 'noindex,follow';
+    $shopTitle = 'Ödeme sonucu';
+    $shopCrumbs = [
+        ['label' => 'Ana Sayfa', 'url' => '/'],
+        ['label' => 'Ödeme sonucu', 'url' => ''],
+    ];
+    $returnPath = '/odeme-sonuc';
+    require __DIR__ . '/partials/header.php';
+    require __DIR__ . '/partials/shop-banner.php';
+    require __DIR__ . '/partials/order-locked.php';
+    require __DIR__ . '/partials/footer.php';
+    return;
+}
 if ($order === null || (string) $order['payment_method'] !== 'kart') {
     http_response_code(404);
     $pageTitle = 'Sayfa bulunamadı';

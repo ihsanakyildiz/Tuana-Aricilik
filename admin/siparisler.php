@@ -40,7 +40,10 @@ $pageTitle = 'Siparişler';
 $crumbCurrent = 'Siparişler';
 $activeNav = 'siparisler';
 $orderNo = (string) ($_GET['no'] ?? '');
-$order = $orderNo === '' ? null : OrderBook::find($orderNo);
+$order = $orderNo === '' ? null : OrderBook::ensureCard(OrderBook::find($orderNo) ?? []);
+if ($order === []) {
+    $order = null;
+}
 $orders = OrderBook::all();
 $csrf = Auth::csrfToken();
 if (is_array($order)) {

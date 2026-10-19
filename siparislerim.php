@@ -41,6 +41,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 $orderNo = (string) ($_GET['no'] ?? '');
 $order = $orderNo === '' ? null : OrderBook::findForMember($orderNo, (int) $member['id']);
+if (is_array($order)) {
+    $order = OrderBook::ensureCard($order);
+}
 $orders = OrderBook::forMember((int) $member['id']);
 $csrf = MemberAccount::csrfToken();
 $flash = MemberAccount::pullFlash();

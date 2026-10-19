@@ -204,7 +204,7 @@ final class Paytr
     }
 
     /** @param array<string, mixed> $post
-     *  @return array{accepted:bool,order_no:string,paid:bool,paid_cents:int,note:string,response:string}
+     *  @return array{accepted:bool,order_no:string,paid:bool,paid_cents:int,note:string,response:string,card:array<string,mixed>}
      */
     public static function verify(array $post): array
     {
@@ -215,6 +215,7 @@ final class Paytr
             'paid_cents' => 0,
             'note' => '',
             'response' => 'PAYTR notification failed: bad hash',
+            'card' => [],
         ];
         if (!self::ready()) {
             $rejected['response'] = 'PAYTR notification failed: not configured';
@@ -250,7 +251,89 @@ final class Paytr
             'paid_cents' => (int) $total,
             'note' => $note,
             'response' => 'OK',
+            'card' => self::readNotice($post),
         ];
+    }
+
+    /** @param array<string, mixed> $post
+     *  @return array<string, mixed>
+     */
+    public static function readNotice(array $post): array
+    {
+        $charged = self::kurus((string) ($post['total_amount'] ?? ''));
+        $basket = self::kurus((string) ($post['payment_amount'] ?? ''));
+        $card = ['test' => (string) ($post['test_mode'] ?? '') === '1'];
+        $count = self::installmentCount($post['installment_count'] ?? null);
+        if ($count !== null) {
+            $card['installments'] = $count;
+        }
+        if ($basket !== null) {
+            $card['basket'] = self::cents($basket);
+        }
+        if ($charged !== null) {
+            $card['charged'] = self::cents($charged);
+        }
+        if ($basket !== null && $charged !== null && $charged >= $basket) {
+            $card['difference'] = self::cents($charged - $basket);
+        }
+
+        return $card;
+    }
+
+    /** @return array<string, mixed>|null */
+    public static function inquiry(string $orderNo): ?array
+    {
+        if (!self::ready() || !OrderBook::validNo($orderNo)) {
+            return null;
+        }
+        $config = self::config();
+        $token = base64_encode(hash_hmac('sha256', $config['merchant_id'] . $orderNo . $config['merchant_salt'], $config['merchant_key'], true));
+        $result = self::request([
+            'merchant_id' => $config['merchant_id'],
+            'merchant_oid' => $orderNo,
+            'paytr_token' => $token,
+        ], 'https://www.paytr.com/odeme/durum-sorgu', 8);
+        if ($result === null || (string) ($result['status'] ?? '') !== 'success') {
+            return null;
+        }
+
+        return self::readInquiry($result);
+    }
+
+    /** @param array<string, mixed> $result
+     *  @return array<string, mixed>
+     */
+    public static function readInquiry(array $result): array
+    {
+        $basket = self::decimal((string) ($result['payment_amount'] ?? ''));
+        $charged = self::decimal((string) ($result['payment_total'] ?? ''));
+        $card = [
+            'fetched' => true,
+            'test' => (string) ($result['test_mode'] ?? '') === '1',
+        ];
+        $count = self::installmentCount($result['taksit'] ?? null);
+        if ($count !== null) {
+            $card['installments'] = $count;
+        }
+        $brand = self::brandLabel((string) ($result['kart_marka'] ?? ''));
+        if ($brand !== '') {
+            $card['brand_label'] = $brand;
+        }
+        $pan = self::pan((string) ($result['masked_pan'] ?? ''));
+        if ($pan !== '') {
+            $card['pan'] = $pan;
+        }
+        if ($basket !== null) {
+            $card['basket'] = self::cents($basket);
+        }
+        if ($charged !== null) {
+            $card['charged'] = self::cents($charged);
+        }
+        if ($basket !== null && $charged !== null && $charged >= $basket) {
+            $card['difference'] = self::cents($charged - $basket);
+        }
+
+        return $card;
     }
 
     /** @return array{ok:bool,error:string,test:bool} */
@@ -382,6 +465,93 @@ final class Paytr
     {
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false
             && strlen($ip) <= 39;
+    }
+
+    private static function installmentCount(mixed $value): ?int
+    {
+        $count = (string) $value;
+        if (preg_match('/^\d{1,2}$/', $count) !== 1) {
+            return null;
+        }
+        $number = (int) $count;
+
+        return $number <= 12 ? $number : null;
+    }
+
+    private static function kurus(string $value): ?int
+    {
+        if (preg_match('/^\d{1,12}$/', $value) !== 1) {
+            return null;
+        }
+        $cents = (int) $value;
+
+        return $cents <= 10000000000 ? $cents : null;
+    }
+
+    private static function decimal(string $value): ?int
+    {
+        $value = str_replace(['TL', '₺', ' '], '', trim($value));
+        if (str_contains($value, ',') && str_contains($value, '.')) {
+            $value = strrpos($value, ',') > strrpos($value, '.')
+                ? str_replace('.', '', $value)
+                : str_replace(',', '', $value);
+        }
+        if (preg_match('/^\d{1,8}$/', $value) === 1) {
+            return self::kurus((string) (((int) $value) * 100));
+        }
+        if (preg_match('/^\d{1,8}[.,]\d{1,2}$/', $value) !== 1) {
+            return null;
+        }
+        [$whole, $fraction] = explode(str_contains($value, ',') ? ',' : '.', $value);
+
+        return self::kurus($whole . str_pad(substr($fraction, 0, 2), 2, '0'));
+    }
+
+    private static function cents(int $cents): string
+    {
+        return intdiv($cents, 100) . '.' . str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
+    }
+
+    private static function brandLabel(string $value): string
+    {
+        $clean = trim(strip_tags($value));
+        $key = strtolower(preg_replace('/[^a-z]/i', '', $clean) ?? '');
+        $known = [
+            'advantage' => 'HSBC · Advantage',
+            'axess' => 'Akbank · Axess',
+            'bonus' => 'Garanti BBVA · Bonus',
+            'cardfinans' => 'QNB · CardFinans',
+            'combo' => 'Ziraat Bankası · Bankkart Combo',
+            'maximum' => 'İş Bankası · Maximum',
+            'paraf' => 'Halkbank · Paraf',
+            'world' => 'Yapı Kredi · World',
+            'word' => 'Yapı Kredi · World',
+            'saglamkart' => 'Kuveyt Türk · Sağlam Kart',
+        ];
+        if (isset($known[$key])) {
+            return $known[$key];
+        }
+        if ($key === '' || strlen($key) > 24) {
+            return '';
+        }
+
+        return $clean;
+    }
+
+    private static function pan(string $value): string
+    {
+        $value = strtoupper(preg_replace('/\s+/', '', trim($value)) ?? '');
+        if ($value === '' || strlen($value) < 8 || strlen($value) > 19 || preg_match('/\d{13,}/', $value) === 1) {
+            return '';
+        }
+        if (preg_match('/^[0-9*]{4,8}[A-Z*]{0,8}[0-9]{2,4}$/', $value) !== 1) {
+            return '';
+        }
+        if (preg_match('/(\d{2,4})$/', $value, $match) !== 1) {
+            return '';
+        }
+
+        return '•••• ' . $match[1];
     }
 
     private static function clip(string $value, int $limit): string

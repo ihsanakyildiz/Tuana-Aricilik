@@ -24,6 +24,27 @@ if (strlen($access) > 64) {
 }
 $orderNo = (string) ($_GET['no'] ?? '');
 $order = OrderBook::forViewer($orderNo, $access);
+if ($order === null && OrderBook::needsLogin($orderNo)) {
+    $pageTitle = 'Giriş gerekli';
+    $metaDescription = '';
+    $canonicalPath = '/tesekkur';
+    $bodyClass = 'is-page is-shop';
+    $robots = 'noindex,follow';
+    $shopTitle = 'Teşekkürler';
+    $shopCrumbs = [
+        ['label' => 'Ana Sayfa', 'url' => '/'],
+        ['label' => 'Teşekkürler', 'url' => ''],
+    ];
+    $returnPath = '/tesekkur';
+    require __DIR__ . '/partials/header.php';
+    require __DIR__ . '/partials/shop-banner.php';
+    require __DIR__ . '/partials/order-locked.php';
+    require __DIR__ . '/partials/footer.php';
+    return;
+}
+if (is_array($order)) {
+    $order = OrderBook::ensureCard($order);
+}
 if ($order === null) {
     http_response_code(404);
     $pageTitle = 'Sayfa bulunamadı';

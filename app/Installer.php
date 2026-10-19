@@ -154,6 +154,7 @@ final class Installer
                 refunded DECIMAL(12,2) NOT NULL DEFAULT 0.00,
                 refund_json LONGTEXT NULL,
                 geliver_json LONGTEXT NULL,
+                paytr_json LONGTEXT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
@@ -166,6 +167,7 @@ final class Installer
         self::ensureColumn($pdo, 'orders', 'refunded', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
         self::ensureColumn($pdo, 'orders', 'refund_json', 'LONGTEXT NULL');
         self::ensureColumn($pdo, 'orders', 'geliver_json', 'LONGTEXT NULL');
+        self::ensureColumn($pdo, 'orders', 'paytr_json', 'LONGTEXT NULL');
 
         $pdo->exec(
             'CREATE TABLE IF NOT EXISTS notices (
@@ -201,7 +203,7 @@ final class Installer
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
     {
-        $columns = ['paytr_note', 'paytr_collected', 'refunded', 'refund_json', 'geliver_json'];
+        $columns = ['paytr_note', 'paytr_collected', 'refunded', 'refund_json', 'geliver_json', 'paytr_json'];
         if (!in_array($table, ['orders'], true) || !in_array($column, $columns, true)) {
             return;
         }
