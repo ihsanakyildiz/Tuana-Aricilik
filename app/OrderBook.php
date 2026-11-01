@@ -506,6 +506,45 @@ final class OrderBook
     }
 
     /** @return list<string> */
+    public static function remove(string $orderNo): array
+    {
+        if (!self::validNo($orderNo)) {
+            return ['Sipariş bulunamadı.'];
+        }
+        $pdo = db_pdo();
+        if (!$pdo instanceof PDO) {
+            return ['Sipariş silinemedi.'];
+        }
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare(
+                'SELECT product_key, qty, stock_held FROM orders WHERE order_no = ? LIMIT 1 FOR UPDATE'
+            );
+            $stmt->execute([$orderNo]);
+            $row = $stmt->fetch();
+            if (!is_array($row)) {
+                $pdo->rollBack();
+
+                return ['Sipariş bulunamadı.'];
+            }
+            if ((int) $row['stock_held'] === 1) {
+                ProductEditor::releaseStock($pdo, (string) $row['product_key'], (int) $row['qty']);
+            }
+            $delete = $pdo->prepare('DELETE FROM orders WHERE order_no = ?');
+            $delete->execute([$orderNo]);
+            $pdo->commit();
+        } catch (Throwable) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return ['Sipariş silinemedi.'];
+        }
+
+        return [];
+    }
+
+    /** @return list<string> */
     public static function setStatus(string $orderNo, string $status): array
     {
         if (!isset(self::STATUSES[$status]) || !self::validNo($orderNo)) {
@@ -804,7 +843,8 @@ final class OrderBook
     }
 
     /** @return list<string> */
-    public static function geliverAct(string $orderNo, string $action, string $offerId = ''): array
+    /** @param array<string, mixed> $input */
+    public static function geliverAct(string $orderNo, string $action, string $offerId = '', array $input = []): array
     {
         if (!self::validNo($orderNo)) {
             return ['Sipariş bulunamadı.'];
@@ -819,10 +859,15 @@ final class OrderBook
             if ($shipmentId !== '') {
                 return ['Bu siparişin Geliver gönderisi zaten var.'];
             }
-            $created = Geliver::create($order);
+            $chosen = Geliver::chooseParcel($order, $input);
+            if ($chosen['error'] !== '') {
+                return [$chosen['error']];
+            }
+            $created = Geliver::create($order, $chosen['parcel']);
             if (!$created['ok']) {
                 return [$created['error']];
             }
+            $created['state']['parcel'] = $chosen['parcel'];
 
             return self::storeGeliver($orderNo, $created['state'], null);
         }
@@ -1288,6 +1333,7 @@ final class OrderBook
             'amount' => '',
             'currency' => '',
             'note' => '',
+            'parcel' => Geliver::parcelState(null),
             'iade' => Geliver::emptyReturn(),
         ];
     }
@@ -1355,6 +1401,10 @@ final class OrderBook
             }
             if ($key === 'iade') {
                 $state['iade'] = self::iadeView($decoded['iade'] ?? null);
+                continue;
+            }
+            if ($key === 'parcel') {
+                $state['parcel'] = Geliver::parcelState($decoded['parcel'] ?? null);
                 continue;
             }
             if (isset($decoded[$key]) && is_string($decoded[$key])) {

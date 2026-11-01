@@ -126,10 +126,165 @@ final class Geliver
         return [];
     }
 
+    /**
+     * @param array{length:string,width:string,height:string,weight:string} $unit
+     * @return array{length:string,width:string,height:string,weight:string,fits:bool}
+     */
+    public static function combine(array $unit, int $qty): array
+    {
+        $qty = max(1, $qty);
+        $failed = ['length' => '', 'width' => '', 'height' => '', 'weight' => '', 'fits' => false];
+        $length = self::measure((string) ($unit['length'] ?? ''), 1, 200);
+        $width = self::measure((string) ($unit['width'] ?? ''), 1, 200);
+        $height = self::measure((string) ($unit['height'] ?? ''), 1, 200);
+        $weight = self::measure((string) ($unit['weight'] ?? ''), 0.1, 30);
+        if ($length === null || $width === null || $height === null || $weight === null) {
+            return $failed;
+        }
+        $sides = [
+            (int) round((float) $length * 10),
+            (int) round((float) $width * 10),
+            (int) round((float) $height * 10),
+        ];
+        sort($sides);
+        $stacked = $sides[0] * $qty;
+        $grams = (int) round((float) $weight * 1000) * $qty;
+        if ($stacked > 2000 || $grams > 30000 || $grams < 100) {
+            return $failed;
+        }
+        $sides[0] = $stacked;
+        rsort($sides);
+
+        return [
+            'length' => number_format($sides[0] / 10, 1, '.', ''),
+            'width' => number_format($sides[1] / 10, 1, '.', ''),
+            'height' => number_format($sides[2] / 10, 1, '.', ''),
+            'weight' => number_format($grams / 1000, 1, '.', ''),
+            'fits' => true,
+        ];
+    }
+
     /** @param array<string, mixed> $order
+     *  @return array{length:string,width:string,height:string,weight:string,source:string,qty:int,note:string}
+     */
+    public static function plan(array $order): array
+    {
+        $config = self::config();
+        $qty = max(1, (int) ($order['qty'] ?? 1));
+        $fallback = [
+            'length' => $config['length'],
+            'width' => $config['width'],
+            'height' => $config['height'],
+            'weight' => $config['weight'],
+            'source' => 'fallback',
+            'qty' => $qty,
+            'note' => 'Bu ürünün kargo ölçüsü yok. Genel paket ölçüsü getirildi. Göndermeden önce kontrol et ya da ürüne ölçü yaz.',
+        ];
+        $cargo = ProductEditor::cargo((string) ($order['product_key'] ?? ''));
+        if ($cargo === null) {
+            return $fallback;
+        }
+        $combined = self::combine($cargo, $qty);
+        if (!$combined['fits']) {
+            return [
+                'length' => $cargo['length'],
+                'width' => $cargo['width'],
+                'height' => $cargo['height'],
+                'weight' => $cargo['weight'],
+                'source' => 'review',
+                'qty' => $qty,
+                'note' => (string) $qty . ' adet bu ölçüyle tek paketin sınırına sığmıyor. En, boy ve yükseklik 200 cm, ağırlık 30 kg altında olmalı. Bu gönderinin ölçüsünü düzenle.',
+            ];
+        }
+
+        return [
+            'length' => $combined['length'],
+            'width' => $combined['width'],
+            'height' => $combined['height'],
+            'weight' => $combined['weight'],
+            'source' => 'product',
+            'qty' => $qty,
+            'note' => $qty === 1
+                ? 'Paket, ürünün bir adetlik kargo ölçüsünden geldi.'
+                : (string) $qty . ' adet: ağırlık çarpıldı, en kısa kenar üst üste eklendi.',
+        ];
+    }
+
+    /** @param array<string, mixed> $order
+     *  @param array<string, mixed> $input
+     *  @return array{error:string,parcel:array{length:string,width:string,height:string,weight:string,source:string}}
+     */
+    public static function chooseParcel(array $order, array $input): array
+    {
+        $plan = self::plan($order);
+        $length = self::measure((string) ($input['length'] ?? ''), 1, 200);
+        $width = self::measure((string) ($input['width'] ?? ''), 1, 200);
+        $height = self::measure((string) ($input['height'] ?? ''), 1, 200);
+        $weight = self::measure((string) ($input['weight'] ?? ''), 0.1, 30);
+        if ($length === null || $width === null || $height === null || $weight === null) {
+            return [
+                'error' => 'Paket ölçüsü 1–200 cm, ağırlık 0,1–30 kg olmalı.',
+                'parcel' => [
+                    'length' => $plan['length'],
+                    'width' => $plan['width'],
+                    'height' => $plan['height'],
+                    'weight' => $plan['weight'],
+                    'source' => $plan['source'],
+                ],
+            ];
+        }
+        $source = $plan['source'];
+        if ($length !== $plan['length'] || $width !== $plan['width'] || $height !== $plan['height'] || $weight !== $plan['weight']) {
+            $source = 'edited';
+        }
+
+        return [
+            'error' => '',
+            'parcel' => [
+                'length' => $length,
+                'width' => $width,
+                'height' => $height,
+                'weight' => $weight,
+                'source' => $source,
+            ],
+        ];
+    }
+
+    /** @param array<string, mixed> $value
+     *  @return array{length:string,width:string,height:string,weight:string,source:string}
+     */
+    public static function parcelState(mixed $value): array
+    {
+        $empty = ['length' => '', 'width' => '', 'height' => '', 'weight' => '', 'source' => ''];
+        if (!is_array($value)) {
+            return $empty;
+        }
+        $length = self::measure((string) ($value['length'] ?? ''), 1, 200);
+        $width = self::measure((string) ($value['width'] ?? ''), 1, 200);
+        $height = self::measure((string) ($value['height'] ?? ''), 1, 200);
+        $weight = self::measure((string) ($value['weight'] ?? ''), 0.1, 30);
+        if ($length === null || $width === null || $height === null || $weight === null) {
+            return $empty;
+        }
+        $source = (string) ($value['source'] ?? '');
+        if (!in_array($source, ['product', 'fallback', 'edited', 'review'], true)) {
+            $source = 'edited';
+        }
+
+        return [
+            'length' => $length,
+            'width' => $width,
+            'height' => $height,
+            'weight' => $weight,
+            'source' => $source,
+        ];
+    }
+
+    /** @param array<string, mixed> $order
+     *  @param array{length:string,width:string,height:string,weight:string,source:string} $parcel
      *  @return array{ok:bool,error:string,state:array<string, mixed>}
      */
-    public static function create(array $order): array
+    public static function create(array $order, array $parcel): array
     {
         $empty = ['ok' => false, 'error' => 'Geliver gönderisi açılamadı.', 'state' => []];
         if (!self::ready()) {
@@ -152,13 +307,22 @@ final class Geliver
         if (!self::email($email)) {
             $email = $config['sender']['email'];
         }
+        $length = self::measure((string) ($parcel['length'] ?? ''), 1, 200);
+        $width = self::measure((string) ($parcel['width'] ?? ''), 1, 200);
+        $height = self::measure((string) ($parcel['height'] ?? ''), 1, 200);
+        $weight = self::measure((string) ($parcel['weight'] ?? ''), 0.1, 30);
+        if ($length === null || $width === null || $height === null || $weight === null) {
+            $empty['error'] = 'Paket ölçüsü 1–200 cm, ağırlık 0,1–30 kg olmalı.';
+
+            return $empty;
+        }
         $body = [
             'senderAddressID' => $config['sender_id'],
-            'length' => $config['length'],
-            'width' => $config['width'],
-            'height' => $config['height'],
+            'length' => $length,
+            'width' => $width,
+            'height' => $height,
             'distanceUnit' => 'cm',
-            'weight' => $config['weight'],
+            'weight' => $weight,
             'massUnit' => 'kg',
             'productPaymentOnDelivery' => false,
             'recipientAddress' => [
@@ -561,7 +725,7 @@ final class Geliver
         return preg_match('#^https://#', $value) === 1 && strlen($value) <= 400 ? $value : '';
     }
 
-    private static function measure(string $value, float $min, float $max): ?string
+    public static function measure(string $value, float $min, float $max): ?string
     {
         $value = str_replace(',', '.', trim($value));
         if (!is_numeric($value)) {

@@ -26,6 +26,10 @@ $posted = [
     'amount' => '',
     'stock_track' => true,
     'stock_qty' => '0',
+    'ship_length' => '',
+    'ship_width' => '',
+    'ship_height' => '',
+    'ship_weight' => '',
     'key' => '',
 ];
 
@@ -104,6 +108,10 @@ if ($mode === 'list' && isset($_GET['yeni'])) {
             'amount' => $product['amount'],
             'stock_track' => $product['stock_track'],
             'stock_qty' => (string) $product['stock_qty'],
+            'ship_length' => (string) $product['ship_length'],
+            'ship_width' => (string) $product['ship_width'],
+            'ship_height' => (string) $product['ship_height'],
+            'ship_weight' => (string) $product['ship_weight'],
             'key' => $product['key'],
         ];
     }
@@ -268,6 +276,28 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                 </label>
                 <p class="field-hint only-stock">Satılan birim sayısı. Örneğin 24 kavanoz. Sıfır, ürünün tükendiğini gösterir.</p>
                 <p class="field-hint stock-open">Takip kapalıyken ürün stokla sınırlanmaz.</p>
+            </section>
+            <section class="settings-card">
+                <h2>Kargo paketi</h2>
+                <p class="field-hint">Bir adedin paketlenmiş hali. Siparişte birden fazla adet varsa ağırlık çarpılır, en kısa kenar üst üste eklenir. Boş bırakırsan gönderide genel paket ölçüsü kullanılır.</p>
+                <div class="fields-2">
+                    <label class="field" for="ship-length">
+                        <span>En (cm)</span>
+                        <input id="ship-length" name="ship_length" type="text" inputmode="decimal" maxlength="8" value="<?= e((string) $posted['ship_length']) ?>" placeholder="40">
+                    </label>
+                    <label class="field" for="ship-width">
+                        <span>Boy (cm)</span>
+                        <input id="ship-width" name="ship_width" type="text" inputmode="decimal" maxlength="8" value="<?= e((string) $posted['ship_width']) ?>" placeholder="30">
+                    </label>
+                    <label class="field" for="ship-height">
+                        <span>Yükseklik (cm)</span>
+                        <input id="ship-height" name="ship_height" type="text" inputmode="decimal" maxlength="8" value="<?= e((string) $posted['ship_height']) ?>" placeholder="25">
+                    </label>
+                    <label class="field" for="ship-weight">
+                        <span>Ağırlık (kg)</span>
+                        <input id="ship-weight" name="ship_weight" type="text" inputmode="decimal" maxlength="8" value="<?= e((string) $posted['ship_weight']) ?>" placeholder="2,5">
+                    </label>
+                </div>
             </section>
         </aside>
     </form>

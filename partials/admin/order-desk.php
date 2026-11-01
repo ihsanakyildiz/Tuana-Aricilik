@@ -241,5 +241,16 @@ $orderNo = (string) ($order['order_no'] ?? '');
             <?php endif; ?>
             <a class="sale-btn is-ghost" href="<?= root_url('admin/gonderi.php?no=' . rawurlencode($orderNo)) ?>">Gönderim sayfası</a>
         </section>
+        <section class="sale-card">
+            <h3>Siparişi sil</h3>
+            <p class="sale-note">Sipariş listeden kalkar ve tutulan stok açılır. Kart iadesi yapılmaz, kargo etiketi iptal edilmez.</p>
+            <form method="post" action="<?= root_url('admin/siparisler.php') ?>">
+                <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="order_no" value="<?= e($orderNo) ?>">
+                <label class="field">Admin şifresi <input type="password" name="password" maxlength="128" autocomplete="current-password" required></label>
+                <button class="sale-btn is-danger" type="submit">Siparişi sil</button>
+            </form>
+        </section>
     </aside>
 </div>

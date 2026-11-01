@@ -17,7 +17,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         Auth::flash('err', 'Oturum doğrulanamadı. Sayfayı yenileyip yeniden dene.');
     } else {
         $errors = match ($action) {
-            'geliver_create' => OrderBook::geliverAct((string) ($_POST['order_no'] ?? ''), 'create'),
+            'geliver_create' => OrderBook::geliverAct((string) ($_POST['order_no'] ?? ''), 'create', '', $_POST),
             'geliver_sync' => OrderBook::geliverAct((string) ($_POST['order_no'] ?? ''), 'sync'),
             'geliver_accept' => OrderBook::geliverAct((string) ($_POST['order_no'] ?? ''), 'accept', (string) ($_POST['offer_id'] ?? '')),
             'geliver_cancel' => OrderBook::geliverAct((string) ($_POST['order_no'] ?? ''), 'cancel'),
@@ -77,6 +77,17 @@ require dirname(__DIR__) . '/partials/admin/start.php';
     $shipping = is_array($order['shipping'] ?? null) ? $order['shipping'] : [];
     $geliver = is_array($order['geliver'] ?? null) ? $order['geliver'] : [];
     $parcel = Geliver::config();
+    $plan = Geliver::plan($order);
+    $savedParcel = Geliver::parcelState($geliver['parcel'] ?? null);
+    $parcelSource = static function (string $source): string {
+        return match ($source) {
+            'product' => 'Ürün ölçüsünden',
+            'fallback' => 'Genel paket ölçüsünden',
+            'edited' => 'Bu gönderi için düzenlendi',
+            'review' => 'Bir adetlik ürün ölçüsüyle',
+            default => '',
+        };
+    };
     $shipmentId = (string) ($geliver['shipment_id'] ?? '');
     $offers = is_array($geliver['offers'] ?? null) ? $geliver['offers'] : [];
     $labelReady = (string) ($geliver['offer_id'] ?? '') !== '' || (string) ($geliver['label_url'] ?? '') !== '';
@@ -131,10 +142,17 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                 <a class="sale-btn" href="<?= root_url('admin/kargo.php') ?>">Kargo ayarları</a>
             <?php elseif ($shipmentId === ''): ?>
                 <p class="sale-note">Gönderi açılınca kargo firmalarının teklifleri bu tabloda listelenir. Etiket, seçtiğin teklif onaylanınca alınır.</p>
+                <p class="sale-note"><?= e($plan['note']) ?></p>
                 <form method="post" action="<?= root_url('admin/gonderi.php') ?>">
                     <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
                     <input type="hidden" name="action" value="geliver_create">
                     <input type="hidden" name="order_no" value="<?= e($orderNo) ?>">
+                    <div class="fields-2">
+                        <label class="field">En (cm) <input type="text" name="length" inputmode="decimal" maxlength="8" value="<?= e($plan['length']) ?>" required></label>
+                        <label class="field">Boy (cm) <input type="text" name="width" inputmode="decimal" maxlength="8" value="<?= e($plan['width']) ?>" required></label>
+                        <label class="field">Yükseklik (cm) <input type="text" name="height" inputmode="decimal" maxlength="8" value="<?= e($plan['height']) ?>" required></label>
+                        <label class="field">Ağırlık (kg) <input type="text" name="weight" inputmode="decimal" maxlength="8" value="<?= e($plan['weight']) ?>" required></label>
+                    </div>
                     <button class="sale-btn" type="submit">Gönderi oluştur</button>
                 </form>
             <?php else: ?>
@@ -270,12 +288,30 @@ require dirname(__DIR__) . '/partials/admin/start.php';
             </section>
             <section class="sale-card">
                 <h3>Paket</h3>
-                <dl class="sale-lines">
-                    <div><dt>Ölçü</dt><dd><?= e($parcel['length'] . ' × ' . $parcel['width'] . ' × ' . $parcel['height']) ?> cm</dd></div>
-                    <div><dt>Ağırlık</dt><dd><?= e($parcel['weight']) ?> kg</dd></div>
-                    <div><dt>Gönderici</dt><dd><?= $parcel['sender_id'] !== '' ? 'Kayıtlı' : 'Eksik' ?></dd></div>
-                </dl>
-                <a class="sale-btn is-ghost" href="<?= root_url('admin/kargo.php') ?>">Paket ayarları</a>
+                <?php if ($savedParcel['length'] !== ''): ?>
+                    <dl class="sale-lines">
+                        <div><dt>Ölçü</dt><dd><?= e($savedParcel['length'] . ' × ' . $savedParcel['width'] . ' × ' . $savedParcel['height']) ?> cm</dd></div>
+                        <div><dt>Ağırlık</dt><dd><?= e($savedParcel['weight']) ?> kg</dd></div>
+                        <div><dt>Kaynak</dt><dd><?= e($parcelSource($savedParcel['source'])) ?></dd></div>
+                    </dl>
+                <?php elseif ($shipmentId !== ''): ?>
+                    <dl class="sale-lines">
+                        <div><dt>Ölçü</dt><dd><?= e($parcel['length'] . ' × ' . $parcel['width'] . ' × ' . $parcel['height']) ?> cm</dd></div>
+                        <div><dt>Ağırlık</dt><dd><?= e($parcel['weight']) ?> kg</dd></div>
+                    </dl>
+                    <p class="sale-note">Bu gönderide kayıtlı paket ölçüsü yok. Görünen değer şu anki genel paket ölçüsü.</p>
+                <?php else: ?>
+                    <dl class="sale-lines">
+                        <div><dt>Ölçü</dt><dd><?= e($plan['length'] . ' × ' . $plan['width'] . ' × ' . $plan['height']) ?> cm</dd></div>
+                        <div><dt>Ağırlık</dt><dd><?= e($plan['weight']) ?> kg</dd></div>
+                        <div><dt>Kaynak</dt><dd><?= e($parcelSource($plan['source'])) ?></dd></div>
+                    </dl>
+                    <p class="sale-note"><?= e($plan['note']) ?></p>
+                <?php endif; ?>
+                <?php if ((string) ($order['product_key'] ?? '') !== ''): ?>
+                    <a class="sale-btn is-ghost" href="<?= root_url('admin/urunler.php?urun=' . rawurlencode((string) $order['product_key'])) ?>">Ürün ölçüsü</a>
+                <?php endif; ?>
+                <a class="sale-btn is-ghost" href="<?= root_url('admin/kargo.php') ?>">Genel paket ölçüsü</a>
             </section>
         </aside>
     </div>

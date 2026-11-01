@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/ImageSet.php';
 require_once __DIR__ . '/HtmlSanitizer.php';
 require_once __DIR__ . '/ProductCategoryEditor.php';
+require_once __DIR__ . '/Geliver.php';
 
 final class ProductEditor
 {
@@ -170,6 +171,10 @@ final class ProductEditor
             'amount' => (string) ($content['amount'] ?? ''),
             'stock_track' => !empty($content['stock_track']),
             'stock_qty' => (int) ($content['stock_qty'] ?? 0),
+            'ship_length' => self::shipMeasure((string) ($content['ship_length'] ?? ''), 1, 200),
+            'ship_width' => self::shipMeasure((string) ($content['ship_width'] ?? ''), 1, 200),
+            'ship_height' => self::shipMeasure((string) ($content['ship_height'] ?? ''), 1, 200),
+            'ship_weight' => self::shipMeasure((string) ($content['ship_weight'] ?? ''), 0.1, 30),
             'image' => (string) ($content['image'] ?? ''),
             'gallery' => $gallery,
             'content' => $content,
@@ -205,6 +210,10 @@ final class ProductEditor
             'amount' => self::clip(is_string($post['amount'] ?? null) ? $post['amount'] : '', 40),
             'stock_track' => isset($post['stock_track']),
             'stock_qty' => self::clip(is_string($post['stock_qty'] ?? null) ? $post['stock_qty'] : '', 6),
+            'ship_length' => self::clip(is_string($post['ship_length'] ?? null) ? $post['ship_length'] : '', 8),
+            'ship_width' => self::clip(is_string($post['ship_width'] ?? null) ? $post['ship_width'] : '', 8),
+            'ship_height' => self::clip(is_string($post['ship_height'] ?? null) ? $post['ship_height'] : '', 8),
+            'ship_weight' => self::clip(is_string($post['ship_weight'] ?? null) ? $post['ship_weight'] : '', 8),
             'key' => $original,
         ];
         if ($original !== '' && $current === null) {
@@ -247,6 +256,25 @@ final class ProductEditor
             $errors[] = 'Stok kodu harf, rakam, nokta, alt çizgi ve tire içerebilir.';
         } elseif ($sku !== '' && self::skuTaken($sku, $current === null ? 0 : (int) $current['id'])) {
             $errors[] = 'Bu stok kodu başka bir üründe kullanılıyor.';
+        }
+        $shipLength = self::shipMeasure($values['ship_length'], 1, 200);
+        $shipWidth = self::shipMeasure($values['ship_width'], 1, 200);
+        $shipHeight = self::shipMeasure($values['ship_height'], 1, 200);
+        $shipWeight = self::shipMeasure($values['ship_weight'], 0.1, 30);
+        $shipFilled = [$values['ship_length'], $values['ship_width'], $values['ship_height'], $values['ship_weight']];
+        $shipAny = false;
+        $shipAll = true;
+        foreach ($shipFilled as $shipValue) {
+            if (trim($shipValue) !== '') {
+                $shipAny = true;
+            } else {
+                $shipAll = false;
+            }
+        }
+        if ($shipAny && !$shipAll) {
+            $errors[] = 'Kargo ölçüsünün en, boy, yükseklik ve ağırlığını birlikte yaz.';
+        } elseif ($shipAll && ($shipLength === '' || $shipWidth === '' || $shipHeight === '' || $shipWeight === '')) {
+            $errors[] = 'Kargo ölçüsü 1–200 cm, ağırlık 0,1–30 kg olmalı.';
         }
         $stockQty = 0;
         if ($values['stock_track']) {
@@ -307,6 +335,10 @@ final class ProductEditor
             $content['amount'] = $values['amount'];
             $content['stock_track'] = $values['stock_track'];
             $content['stock_qty'] = $stockQty;
+            $content['ship_length'] = $shipAny ? $shipLength : '';
+            $content['ship_width'] = $shipAny ? $shipWidth : '';
+            $content['ship_height'] = $shipAny ? $shipHeight : '';
+            $content['ship_weight'] = $shipAny ? $shipWeight : '';
             $content['gallery'] = $gallery;
             $content['image'] = is_array($cover) ? (string) $cover['image'] : '';
             $content['image_alt'] = is_array($cover) ? (string) $cover['alt'] : '';
@@ -791,6 +823,29 @@ final class ProductEditor
         ];
     }
 
+    /** @return array{length:string,width:string,height:string,weight:string}|null */
+    public static function cargo(string $key): ?array
+    {
+        $product = self::open($key);
+        if ($product === null) {
+            return null;
+        }
+        $length = (string) ($product['ship_length'] ?? '');
+        $width = (string) ($product['ship_width'] ?? '');
+        $height = (string) ($product['ship_height'] ?? '');
+        $weight = (string) ($product['ship_weight'] ?? '');
+        if ($length === '' || $width === '' || $height === '' || $weight === '') {
+            return null;
+        }
+
+        return [
+            'length' => $length,
+            'width' => $width,
+            'height' => $height,
+            'weight' => $weight,
+        ];
+    }
+
     public static function releaseStock(PDO $pdo, string $key, int $qty): void
     {
         if ($qty < 1 || !preg_match('/^[a-z0-9\-]+$/', $key)) {
@@ -816,6 +871,13 @@ final class ProductEditor
         $content['stock_qty'] = $stock;
         $update = $pdo->prepare('UPDATE blocks SET content = ? WHERE id = ? AND block_type = ?');
         $update->execute([encode_value($content), (int) $row['id'], self::TYPE]);
+    }
+
+    private static function shipMeasure(string $value, float $min, float $max): string
+    {
+        $measured = Geliver::measure($value, $min, $max);
+
+        return $measured ?? '';
     }
 
     private static function pdo(): PDO

@@ -13,23 +13,31 @@ Auth::requireLogin();
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
     if (!Auth::checkCsrf(isset($_POST['csrf']) ? (string) $_POST['csrf'] : null)) {
-        Auth::flash('err', 'Oturum doğrulanamadı. Sayfayı yenileyip yeniden dene.');
+        $errors = ['Oturum doğrulanamadı. Sayfayı yenileyip yeniden dene.'];
+    } elseif ($action === 'delete') {
+        $passwordError = Auth::confirmPassword((string) ($_POST['password'] ?? ''));
+        $errors = $passwordError !== null
+            ? [$passwordError]
+            : OrderBook::remove((string) ($_POST['order_no'] ?? ''));
     } else {
         $errors = match ($action) {
             'status' => OrderBook::setStatus((string) ($_POST['order_no'] ?? ''), (string) ($_POST['status'] ?? '')),
             'refund', 'refund_full' => OrderBook::refund((string) ($_POST['order_no'] ?? ''), (string) ($_POST['amount'] ?? ''), $action === 'refund_full'),
             default => ['Bu işlem tanınmıyor.'],
         };
-        $saved = match ($action) {
-            'refund', 'refund_full' => 'İade PayTR tarafına iletildi.',
-            default => 'Kaydedildi.',
-        };
-        Auth::flash($errors === [] ? 'ok' : 'err', $errors === [] ? $saved : $errors[0]);
     }
+    $saved = match ($action) {
+        'delete' => 'Sipariş silindi.',
+        'refund', 'refund_full' => 'İade PayTR tarafına iletildi.',
+        default => 'Kaydedildi.',
+    };
+    Auth::flash($errors === [] ? 'ok' : 'err', $errors === [] ? $saved : $errors[0]);
     $back = 'admin/siparisler.php';
     $orderNo = (string) ($_POST['order_no'] ?? '');
-    $detailActions = ['status', 'refund', 'refund_full'];
-    if (preg_match('/^TA\d{6}[A-F0-9]{6}$/', $orderNo) === 1 && in_array($action, $detailActions, true)) {
+    $stayOnOrder = $action === 'delete'
+        ? $errors !== []
+        : in_array($action, ['status', 'refund', 'refund_full'], true);
+    if (preg_match('/^TA\d{6}[A-F0-9]{6}$/', $orderNo) === 1 && $stayOnOrder) {
         $back .= '?no=' . rawurlencode($orderNo);
     }
     header('Location: ' . root_path() . '/' . $back, true, 303);

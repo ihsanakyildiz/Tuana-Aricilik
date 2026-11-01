@@ -56,6 +56,7 @@ require dirname(__DIR__) . '/partials/admin/start.php';
         <label class="field">Boy (cm) <input type="text" name="width" inputmode="decimal" maxlength="8" value="<?= e($geliver['width']) ?>" required></label>
         <label class="field">Yükseklik (cm) <input type="text" name="height" inputmode="decimal" maxlength="8" value="<?= e($geliver['height']) ?>" required></label>
         <label class="field">Ağırlık (kg) <input type="text" name="weight" inputmode="decimal" maxlength="8" value="<?= e($geliver['weight']) ?>" required></label>
+        <p class="field-hint">Bu ölçü, kargo ölçüsü yazılmamış ürünlerde kullanılır. Ürünün kendi ölçüsü varsa gönderi onunla hazırlanır ve gönderi ekranında değiştirilebilir.</p>
         <label class="field">Gönderici adı <input type="text" name="sender_name" maxlength="80" value="<?= e($geliver['sender']['name']) ?>" required></label>
         <label class="field">Gönderici e-posta <input type="email" name="sender_email" maxlength="100" value="<?= e($geliver['sender']['email']) ?>" required></label>
         <label class="field">Gönderici telefon <input type="text" name="sender_phone" maxlength="20" value="<?= e($geliver['sender']['phone']) ?>" required></label>

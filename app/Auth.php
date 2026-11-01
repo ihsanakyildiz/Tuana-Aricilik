@@ -256,6 +256,38 @@ final class Auth
         return true;
     }
 
+    public static function confirmPassword(string $password): ?string
+    {
+        self::boot();
+        $admin = self::admin();
+        $pdo = db_pdo();
+        if ($admin === null || !$pdo instanceof PDO) {
+            return 'Oturum bulunamadı. Yeniden giriş yap.';
+        }
+        if (strlen($password) < 1 || strlen($password) > 128) {
+            return 'Şifreyi yaz.';
+        }
+        $ipHash = self::ipHash();
+        self::pruneAttempts($pdo);
+        if (self::isLocked($pdo, $ipHash, $admin['username'])) {
+            self::pause();
+
+            return 'Çok fazla hatalı deneme. 15 dakika sonra yeniden dene.';
+        }
+        $stmt = $pdo->prepare('SELECT password_hash FROM admins WHERE id = ?');
+        $stmt->execute([$admin['id']]);
+        $hash = $stmt->fetchColumn();
+        if (!is_string($hash) || !password_verify($password, $hash)) {
+            self::recordAttempt($pdo, $ipHash, $admin['username']);
+            self::pause();
+
+            return 'Şifre hatalı.';
+        }
+        self::clearAttempts($pdo, $ipHash, $admin['username']);
+
+        return null;
+    }
+
     public static function logout(): void
     {
         self::boot();
