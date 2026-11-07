@@ -23,10 +23,8 @@ if ($section === null) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=1200">
     <title><?= e(SectionCatalog::label($type)) ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= theme_file('css/main.css') ?>">
+    <link rel="stylesheet" href="<?= root_url('assets/css/fonts.css?v=' . asset_version(dirname(__DIR__) . '/assets/css/fonts.css')) ?>">
+    <link rel="stylesheet" href="<?= root_url('assets/css/main.css?v=' . asset_version(dirname(__DIR__) . '/assets/css/main.css')) ?>">
 </head>
 <body class="is-preview">
 <?php render_section($section); ?>

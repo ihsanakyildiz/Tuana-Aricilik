@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 final class SiteSettings
 {
+    public const CACHE_CHOICES = [
+        0 => 'Kapalı',
+        3600 => '1 saat',
+        86400 => '1 gün',
+        604800 => '7 gün',
+        2592000 => '30 gün',
+        31536000 => '1 yıl',
+    ];
+
     public const NETWORKS = [
         'instagram' => 'Instagram',
         'facebook' => 'Facebook',
@@ -66,7 +75,50 @@ final class SiteSettings
             'kvkk_url' => $legal['kvkk_url'],
             'terms_label' => $legal['terms_label'],
             'terms_url' => $legal['terms_url'],
+            'cache_ttl' => self::cache()['ttl'],
+            'cache_revision' => self::cache()['revision'],
+            'cache_cleared_at' => self::cache()['cleared_at'],
         ];
+    }
+
+    /** @return array{ttl:int,revision:int,cleared_at:string} */
+    public static function cache(): array
+    {
+        $stored = setting('cache', []);
+        if (!is_array($stored)) {
+            $stored = [];
+        }
+        $ttl = (int) ($stored['ttl'] ?? 31536000);
+        if (!isset(self::CACHE_CHOICES[$ttl])) {
+            $ttl = 31536000;
+        }
+
+        return [
+            'ttl' => $ttl,
+            'revision' => max(0, (int) ($stored['revision'] ?? 0)),
+            'cleared_at' => trim((string) ($stored['cleared_at'] ?? '')),
+        ];
+    }
+
+    /** @return list<string> */
+    public static function clearCache(): array
+    {
+        if (!db_pdo() instanceof PDO) {
+            return ['Veritabanına bağlanılamadı.'];
+        }
+        $current = self::cache();
+        save_setting('cache', [
+            'ttl' => $current['ttl'],
+            'revision' => $current['revision'] + 1,
+            'cleared_at' => date('d.m.Y H:i'),
+        ]);
+        clearstatcache(true);
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+        header('X-LiteSpeed-Purge: *');
+
+        return [];
     }
 
     /** @return array{kvkk_label:string,kvkk_url:string,terms_label:string,terms_url:string} */
@@ -192,6 +244,10 @@ final class SiteSettings
         if ($themeDir === null) {
             $errors[] = 'Tema klasöründe css/main.css ve js/main.js dosyaları bulunmalı.';
         }
+        $cacheTtl = (int) ($post['cache_ttl'] ?? self::cache()['ttl']);
+        if (!isset(self::CACHE_CHOICES[$cacheTtl])) {
+            $errors[] = 'Önbellek süresi geçersiz.';
+        }
 
         $socials = [];
         $postedSocials = $post['socials'] ?? [];
@@ -287,11 +343,81 @@ final class SiteSettings
                 'terms_url' => $termsUrl,
             ],
         ];
+        $cache = self::cache();
+        $rules = self::writeCacheRules($cacheTtl);
+        if ($rules !== null) {
+            return [$rules];
+        }
         foreach ($pairs as $key => $value) {
             save_setting($key, $value);
         }
+        save_setting('cache', [
+            'ttl' => $cacheTtl,
+            'revision' => $cache['revision'],
+            'cleared_at' => $cache['cleared_at'],
+        ]);
 
         return [];
+    }
+
+    private static function writeCacheRules(int $ttl): ?string
+    {
+        $path = dirname(__DIR__) . '/.htaccess';
+        $raw = is_file($path) ? file_get_contents($path) : false;
+        if (!is_string($raw) || !str_contains($raw, '# BEGIN tuana-cache') || !str_contains($raw, '# END tuana-cache')) {
+            return 'Önbellek kuralı .htaccess içinde bulunamadı.';
+        }
+        $expires = match ($ttl) {
+            0 => 'access plus 0 seconds',
+            3600 => 'access plus 1 hours',
+            86400 => 'access plus 1 days',
+            604800 => 'access plus 7 days',
+            2592000 => 'access plus 30 days',
+            31536000 => 'access plus 1 year',
+            default => '',
+        };
+        if ($expires === '') {
+            return 'Önbellek süresi geçersiz.';
+        }
+        $control = $ttl === 0
+            ? 'no-cache, must-revalidate'
+            : 'public, max-age=' . $ttl . ', immutable';
+        $types = [
+            'text/css',
+            'text/javascript',
+            'application/javascript',
+            'image/svg+xml',
+            'image/webp',
+            'image/avif',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/x-icon',
+            'font/woff2',
+            'font/woff',
+        ];
+        $lines = ['# BEGIN tuana-cache', '<IfModule mod_expires.c>', '    ExpiresActive On'];
+        foreach ($types as $type) {
+            $lines[] = '    ExpiresByType ' . $type . ' "' . $expires . '"';
+        }
+        $lines[] = '</IfModule>';
+        $lines[] = '';
+        $lines[] = '<IfModule mod_headers.c>';
+        $lines[] = '    <FilesMatch "\.(?:css|js|mjs|svg|webp|avif|gif|jpe?g|png|ico|woff2?)$">';
+        $lines[] = '        Header set Cache-Control "' . $control . '"';
+        $lines[] = '    </FilesMatch>';
+        $lines[] = '</IfModule>';
+        $lines[] = '# END tuana-cache';
+        $block = implode("\n", $lines) . "\n";
+        $next = preg_replace('/# BEGIN tuana-cache\R.*?# END tuana-cache\R?/s', $block, $raw, 1);
+        if (!is_string($next) || !str_contains($next, 'RewriteRule ^paytr-bildirim')) {
+            return 'Önbellek kuralı yazılamadı.';
+        }
+        if ($next !== $raw && file_put_contents($path, $next, LOCK_EX) === false) {
+            return 'Önbellek kuralı yazılamadı.';
+        }
+
+        return null;
     }
 
     private static function clip(string $value, int $max): string

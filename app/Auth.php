@@ -626,7 +626,7 @@ final class Auth
         $ancestors = self::$embed ? "'self'" : "'none'";
         header(
             "Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; "
-            . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
+            . "style-src 'self' 'unsafe-inline'; font-src 'self'; "
             . "script-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors {$ancestors}"
         );
     }

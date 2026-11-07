@@ -14,6 +14,7 @@ $logo = trim((string) setting('logo', ''));
     <title>Bakımda · <?= e($siteName) ?></title>
     <meta name="robots" content="noindex">
     <link rel="icon" href="<?= asset(favicon_file()) ?>" type="<?= e(favicon_type(favicon_file())) ?>">
+    <link rel="stylesheet" href="<?= theme_file('css/fonts.css') ?>">
     <link rel="stylesheet" href="<?= theme_file('css/main.css') ?>">
 </head>
 <body class="maintenance-body">

@@ -77,14 +77,18 @@
 
     function placeFeatureOverlap() {
         if (!homeLead) return;
+        var jobs = [];
         document.querySelectorAll(".features").forEach(function (section) {
             var card = section.querySelector(".feature-card");
             if (!card) return;
-            section.style.setProperty("--feature-overlap", Math.round(card.offsetHeight * 0.2) + "px");
+            jobs.push({ section: section, overlap: Math.round(card.offsetHeight * 0.2) });
+        });
+        jobs.forEach(function (job) {
+            job.section.style.setProperty("--feature-overlap", job.overlap + "px");
         });
     }
 
-    placeFeatureOverlap();
+    window.requestAnimationFrame(placeFeatureOverlap);
     window.addEventListener("resize", placeFeatureOverlap);
 
     if (!motionNodes.length || !root.classList.contains("motion-ok") || !("IntersectionObserver" in window)) {
@@ -131,31 +135,46 @@
     var promos = document.querySelectorAll("[data-promo]");
     var bannerFrame = 0;
 
-    function placePin(node, pinSelector, copyName, shiftName, copyTravel, shiftTravel) {
+    function measurePin(node, pinSelector, copyName, shiftName, copyTravel, shiftTravel) {
         var pin = node.querySelector(pinSelector);
         var view = window.innerHeight || 800;
         var travel = node.offsetHeight - (pin ? pin.offsetHeight : view);
-        if (travel < 8) {
-            node.style.setProperty(copyName, "0px");
-            node.style.setProperty(shiftName, "0px");
-            return;
+        var passed = 0;
+        if (travel >= 8) {
+            var stick = pin ? parseFloat(window.getComputedStyle(pin).top) || 0 : 0;
+            passed = Math.min(Math.max(-(node.getBoundingClientRect().top - stick), 0), travel);
         }
-        var stick = pin ? parseFloat(window.getComputedStyle(pin).top) || 0 : 0;
-        var passed = Math.min(Math.max(-(node.getBoundingClientRect().top - stick), 0), travel);
-        var t = passed / travel;
-        node.style.setProperty(copyName, ((0.5 - t) * copyTravel).toFixed(1) + "px");
-        node.style.setProperty(shiftName, ((t - 0.5) * shiftTravel).toFixed(1) + "px");
+        return {
+            node: node,
+            copyName: copyName,
+            shiftName: shiftName,
+            travel: travel,
+            passed: passed,
+            copyTravel: copyTravel,
+            shiftTravel: shiftTravel
+        };
     }
 
     function placeBanners() {
         bannerFrame = 0;
         if (reduceMotion || (!banners.length && !promos.length)) return;
         var view = window.innerHeight || 800;
+        var jobs = [];
         banners.forEach(function (banner) {
-            placePin(banner, ".banner-pin", "--banner-copy", "--banner-shift", Math.min(170, view * 0.24), 48);
+            jobs.push(measurePin(banner, ".banner-pin", "--banner-copy", "--banner-shift", Math.min(170, view * 0.24), 48));
         });
         promos.forEach(function (promo) {
-            placePin(promo, ".promo-pin", "--promo-copy", "--promo-shift", Math.min(210, view * 0.26), 36);
+            jobs.push(measurePin(promo, ".promo-pin", "--promo-copy", "--promo-shift", Math.min(210, view * 0.26), 36));
+        });
+        jobs.forEach(function (job) {
+            if (job.travel < 8) {
+                job.node.style.setProperty(job.copyName, "0px");
+                job.node.style.setProperty(job.shiftName, "0px");
+                return;
+            }
+            var t = job.passed / job.travel;
+            job.node.style.setProperty(job.copyName, ((0.5 - t) * job.copyTravel).toFixed(1) + "px");
+            job.node.style.setProperty(job.shiftName, ((t - 0.5) * job.shiftTravel).toFixed(1) + "px");
         });
     }
 

@@ -46,9 +46,43 @@ function url(string $path): string
     return e(base_path() . '/' . $path);
 }
 
+function cache_revision(): string
+{
+    static $revision = null;
+    if (is_string($revision)) {
+        return $revision;
+    }
+    $stored = setting('cache', []);
+    $value = is_array($stored) ? (int) ($stored['revision'] ?? 0) : 0;
+    $revision = $value > 0 ? (string) $value : '';
+
+    return $revision;
+}
+
+function asset_version(string $absolute): string
+{
+    $version = is_file($absolute) ? (string) filemtime($absolute) : '';
+    $revision = cache_revision();
+    if ($version === '') {
+        return $revision;
+    }
+
+    return $revision === '' ? $version : $version . '-' . $revision;
+}
+
 function asset(string $path): string
 {
-    return url($path);
+    $url = url($path);
+    $relative = ltrim(str_replace('\\', '/', $path), '/');
+    if ($relative === '' || str_contains($relative, '..') || preg_match('#^assets/(images|uploads)/[A-Za-z0-9_./-]+$#', $relative) !== 1) {
+        return $url;
+    }
+    $file = dirname(__DIR__) . '/' . $relative;
+    if (!is_file($file)) {
+        return $url;
+    }
+
+    return $url . '?v=' . asset_version($file);
 }
 
 function load_seed(): array
@@ -184,8 +218,7 @@ function theme_dir(): string
 function theme_file(string $file): string
 {
     $relative = theme_dir() . '/' . ltrim($file, '/');
-    $absolute = dirname(__DIR__) . '/' . $relative;
-    $version = is_file($absolute) ? (string) filemtime($absolute) : '';
+    $version = asset_version(dirname(__DIR__) . '/' . $relative);
 
     return asset($relative) . ($version === '' ? '' : '?v=' . $version);
 }

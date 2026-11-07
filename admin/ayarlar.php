@@ -13,10 +13,17 @@ $values = SiteSettings::current();
 $errors = [];
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $action = (string) ($_POST['action'] ?? '');
     if ($_POST === [] && $length > 0) {
         $errors[] = 'Gönderilen dosya çok büyük. Daha küçük bir görsel dene.';
     } elseif (!Auth::checkCsrf(isset($_POST['csrf']) ? (string) $_POST['csrf'] : null)) {
         $errors[] = 'Oturum doğrulanamadı. Sayfayı yenileyip yeniden dene.';
+    } elseif ($action === 'cache_clear') {
+        $errors = SiteSettings::clearCache();
+        if ($errors === []) {
+            Auth::flash('ok', 'Önbellek temizlendi.');
+            Auth::redirect('admin/ayarlar.php');
+        }
     } else {
         $errors = SiteSettings::save($_POST, $_FILES);
         if ($errors === []) {
@@ -29,7 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'email', 'phone', 'whatsapp', 'address', 'hours', 'contact_title',
             'contact_label', 'contact_url', 'copyright', 'footer_about', 'photo_credit',
             'upload_dir', 'theme_dir', 'maintenance_message',
-            'kvkk_label', 'kvkk_url', 'terms_label', 'terms_url',
+            'kvkk_label', 'kvkk_url', 'terms_label', 'terms_url', 'cache_ttl',
         ] as $key) {
             if (isset($_POST[$key]) && is_string($_POST[$key])) {
                 $posted[$key] = $_POST[$key];
@@ -260,10 +267,33 @@ require dirname(__DIR__) . '/partials/admin/start.php';
             </label>
             <p class="field-hint">Bakım modu ziyaretçi sayfalarını kapatır. Yönetim paneli açık kalır.</p>
         </section>
+
+        <section class="settings-card">
+            <h2>Önbellek</h2>
+            <p class="settings-lead">Stil, betik, görsel ve yazı tipi dosyalarının tarayıcıda tutulma süresini belirler. Sipariş ve hesap sayfaları bu süreden etkilenmez.</p>
+            <label class="field" for="cache-ttl">
+                <span>Tarayıcı önbellek süresi</span>
+                <select id="cache-ttl" name="cache_ttl">
+                    <?php foreach (SiteSettings::CACHE_CHOICES as $seconds => $label): ?>
+                        <option value="<?= (int) $seconds ?>"<?= (int) ($values['cache_ttl'] ?? 31536000) === (int) $seconds ? ' selected' : '' ?>><?= e($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <p class="field-hint">
+                <?php $clearedAt = trim((string) ($values['cache_cleared_at'] ?? '')); ?>
+                <?= $clearedAt !== '' ? 'Son temizleme: ' . e($clearedAt) . '.' : 'Henüz temizlenmedi.' ?>
+                Süre kaydı .htaccess kuralına yazılır. Temizle, açık tarayıcıların güncel dosyayı yeniden almasını sağlar.
+            </p>
+        </section>
     </div>
 
     <div class="settings-save">
         <button class="login-submit" type="submit">Ayarları kaydet</button>
     </div>
+</form>
+<form class="settings-save" method="post" action="<?= root_url('admin/ayarlar.php') ?>">
+    <input type="hidden" name="csrf" value="<?= e(Auth::csrfToken()) ?>">
+    <input type="hidden" name="action" value="cache_clear">
+    <button class="login-submit is-line" type="submit">Önbelleği temizle</button>
 </form>
 <?php require dirname(__DIR__) . '/partials/admin/end.php'; ?>

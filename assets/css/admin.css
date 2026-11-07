@@ -1002,6 +1002,8 @@ body.is-collapsed .nav-link { justify-content: center; width: 52px; margin-inlin
     margin-top: 16px;
 }
 .settings-save .login-submit { width: auto; min-width: 200px; padding: 0 22px; }
+.login-submit.is-line { background: #fff; color: #24183a; border: 1px solid #e6e3ee; }
+.login-submit.is-line:hover { background: #f7f4ef; }
 
 @media (max-width: 800px) {
     .fields-2 { grid-template-columns: 1fr; }

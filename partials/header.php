@@ -92,9 +92,9 @@ if (trim((string) ($contactButton['label'] ?? '')) === '') {
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
     <?php endif; ?>
     <link rel="icon" href="<?= asset($favicon) ?>" type="<?= e(favicon_type($favicon)) ?>">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preload" href="<?= asset('assets/fonts/manrope-latin.woff2') ?>" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="<?= asset('assets/fonts/outfit-latin.woff2') ?>" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="<?= theme_file('css/fonts.css') ?>">
     <link rel="stylesheet" href="<?= theme_file('css/main.css') ?>">
     <script>
         if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
