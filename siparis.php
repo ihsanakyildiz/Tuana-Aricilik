@@ -64,7 +64,9 @@ $invoiceReady = $member !== null ? !empty($member['invoice_ready']) : $guest !==
 $errors = [];
 $failedAction = '';
 $step = (string) ($_GET['adim'] ?? '') === 'odeme' ? 'odeme' : 'adres';
-$qty = max(1, (int) ($_POST['qty'] ?? 1));
+$qty = (int) ($_POST['qty'] ?? $_POST['adet'] ?? $_GET['adet'] ?? 1);
+$qty = $maxQty >= 1 ? min($maxQty, max(1, $qty)) : 1;
+$orderQuery = 'urun=' . rawurlencode($productKey) . '&adet=' . $qty;
 $payment = (string) ($_POST['payment'] ?? '');
 $cargoId = (string) ($_POST['cargo'] ?? '');
 
@@ -75,7 +77,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     } elseif ($failedAction === 'shipping' && $member !== null) {
         $errors = MemberAccount::save('shipping', $_POST);
         if ($errors === []) {
-            MemberAccount::redirect('siparis?urun=' . rawurlencode($productKey));
+            MemberAccount::redirect('siparis?' . $orderQuery);
         }
         $step = 'adres';
     } elseif ($failedAction === 'guest' && $member === null) {
@@ -83,7 +85,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $errors = $draft['errors'];
         if ($errors === [] && is_array($draft['guest'])) {
             $_SESSION['guest_checkout'] = $draft['guest'];
-            MemberAccount::redirect('siparis?urun=' . rawurlencode($productKey));
+            MemberAccount::redirect('siparis?' . $orderQuery);
         }
         $step = 'adres';
     } elseif ($failedAction === 'place') {
@@ -111,7 +113,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 
 if ($step === 'odeme' && !$shippingReady) {
-    MemberAccount::redirect('siparis?urun=' . rawurlencode($productKey));
+    MemberAccount::redirect('siparis?' . $orderQuery);
 }
 
 $editing = $step === 'adres' && $member !== null && (!$shippingReady || isset($_GET['duzenle']) || $failedAction === 'shipping');
@@ -196,8 +198,8 @@ require __DIR__ . '/partials/shop-banner.php';
                             <p class="account-hint">Fatura bilgin henüz yok. İstersen ödemeden önce <a href="<?= url('/hesabim?urun=' . rawurlencode($productKey) . '#fatura') ?>">fatura bilgisini kaydet</a>.</p>
                         <?php endif; ?>
                         <div class="checkout-actions">
-                            <a class="btn btn-line" href="<?= url('/siparis?urun=' . rawurlencode($productKey) . '&duzenle=1') ?>">Adresi güncelle</a>
-                            <a class="btn" href="<?= url('/siparis?urun=' . rawurlencode($productKey) . '&adim=odeme') ?>">Ödemeye geç</a>
+                            <a class="btn btn-line" href="<?= url('/siparis?' . $orderQuery . '&duzenle=1') ?>">Adresi güncelle</a>
+                            <a class="btn" href="<?= url('/siparis?' . $orderQuery . '&adim=odeme') ?>">Ödemeye geç</a>
                         </div>
                     <?php else: ?>
                         <p class="account-lead">Ürünün gönderileceği adresi kaydet.</p>
@@ -237,6 +239,7 @@ require __DIR__ . '/partials/shop-banner.php';
                             <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
                             <input type="hidden" name="action" value="shipping">
                             <input type="hidden" name="urun" value="<?= e($productKey) ?>">
+                            <input type="hidden" name="adet" value="<?= (int) $qty ?>">
                             <div class="account-fields-2">
                                 <label class="shop-field">
                                     <span>Alıcı adı</span>
@@ -291,7 +294,7 @@ require __DIR__ . '/partials/shop-banner.php';
                                 </label>
                             </div>
                             <div class="checkout-actions">
-                                <?php if ($shippingReady): ?><a class="btn btn-line" href="<?= url('/siparis?urun=' . rawurlencode($productKey)) ?>">Vazgeç</a><?php endif; ?>
+                                <?php if ($shippingReady): ?><a class="btn btn-line" href="<?= url('/siparis?' . $orderQuery) ?>">Vazgeç</a><?php endif; ?>
                                 <button class="btn" type="submit">Adresi kaydet</button>
                             </div>
                         </form>
@@ -397,7 +400,11 @@ require __DIR__ . '/partials/shop-banner.php';
                         </div>
                         <label class="shop-field">
                             <span>Adet</span>
-                            <input type="number" name="qty" min="1" max="<?= (int) $maxQty ?>" value="<?= (int) $shownQty ?>" required>
+                            <div class="qty-step" data-qty>
+                                <button type="button" data-qty-down aria-label="Adedi azalt">−</button>
+                                <input type="number" name="qty" min="1" max="<?= (int) $maxQty ?>" value="<?= (int) $shownQty ?>" inputmode="numeric" aria-label="Adet" required>
+                                <button type="button" data-qty-up aria-label="Adedi artır">+</button>
+                            </div>
                         </label>
                         <dl class="summary-lines">
                             <div><dt>Ara toplam</dt><dd data-subtotal><?= e($formatCents($subtotalCents)) ?></dd></div>
@@ -408,7 +415,7 @@ require __DIR__ . '/partials/shop-banner.php';
                             <?php $legalRequired = true; require __DIR__ . '/partials/legal-consent.php'; ?>
                             <button class="btn" type="submit" data-place>Siparişi tamamla</button>
                         <?php endif; ?>
-                        <a href="<?= url('/siparis?urun=' . rawurlencode($productKey)) ?>">Adrese dön</a>
+                        <a href="<?= url('/siparis?' . $orderQuery) ?>">Adrese dön</a>
                     </aside>
                 </form>
             <?php endif; ?>

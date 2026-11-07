@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$loginNext = '/uye-giris?sonraki=' . rawurlencode('/siparis?urun=' . $productKey);
+$loginNext = '/uye-giris?sonraki=' . rawurlencode('/siparis?urun=' . $productKey . '&adet=' . (int) $qty);
 $guestEmail = (string) ($shipping['email'] ?? '');
 $invoiceKind = (string) ($invoice['kind'] ?? 'bireysel');
 if (!in_array($invoiceKind, ['bireysel', 'kurumsal'], true)) {
@@ -25,8 +25,8 @@ $invoiceSame = $failedAction === 'guest' ? isset($_POST['invoice_same']) : (!arr
             <p class="account-hint"><?= ($invoice['kind'] ?? '') === 'kurumsal' ? 'Kurumsal fatura' : 'Bireysel fatura' ?>: <?= e((string) $invoice['title']) ?></p>
         <?php endif; ?>
         <div class="checkout-actions">
-            <a class="btn btn-line" href="<?= url('/siparis?urun=' . rawurlencode($productKey) . '&duzenle=1') ?>">Bilgileri güncelle</a>
-            <a class="btn" href="<?= url('/siparis?urun=' . rawurlencode($productKey) . '&adim=odeme') ?>">Ödemeye geç</a>
+            <a class="btn btn-line" href="<?= url('/siparis?' . $orderQuery . '&duzenle=1') ?>">Bilgileri güncelle</a>
+            <a class="btn" href="<?= url('/siparis?' . $orderQuery . '&adim=odeme') ?>">Ödemeye geç</a>
         </div>
         <p class="account-hint">Kayıtlı adresin varsa <a href="<?= url($loginNext) ?>">giriş yap</a>.</p>
     <?php else: ?>
@@ -53,6 +53,7 @@ $invoiceSame = $failedAction === 'guest' ? isset($_POST['invoice_same']) : (!arr
             <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
             <input type="hidden" name="action" value="guest">
             <input type="hidden" name="urun" value="<?= e($productKey) ?>">
+            <input type="hidden" name="adet" value="<?= (int) $qty ?>">
             <label class="shop-field">
                 <span>E-posta</span>
                 <input type="email" name="guest_email" value="<?= e($value('guest_email', $guestEmail)) ?>" maxlength="100" autocomplete="email" required>
@@ -180,7 +181,7 @@ $invoiceSame = $failedAction === 'guest' ? isset($_POST['invoice_same']) : (!arr
                 </label>
             </div>
             <div class="checkout-actions">
-                <?php if ($shippingReady): ?><a class="btn btn-line" href="<?= url('/siparis?urun=' . rawurlencode($productKey)) ?>">Vazgeç</a><?php endif; ?>
+                <?php if ($shippingReady): ?><a class="btn btn-line" href="<?= url('/siparis?' . $orderQuery) ?>">Vazgeç</a><?php endif; ?>
                 <button class="btn" type="submit">Bilgileri kaydet</button>
             </div>
         </form>

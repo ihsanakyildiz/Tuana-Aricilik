@@ -38,6 +38,7 @@ $categoryUrl = is_array($category) && $category['active'] ? '/urunler/kategori/'
 $units = ProductEditor::units();
 $unitLabel = (string) ($units[$product['unit']] ?? '');
 $available = !$product['stock_track'] || (int) $product['stock_qty'] > 0;
+$maxQty = $product['stock_track'] ? min(99, max(0, (int) $product['stock_qty'])) : 99;
 $gallery = is_array($product['gallery'] ?? null) ? $product['gallery'] : [];
 $excerpt = trim((string) $product['excerpt']);
 $body = trim((string) $product['body']);
@@ -277,8 +278,16 @@ require __DIR__ . '/partials/header.php';
                         </ul>
                     <?php endif; ?>
                     <p class="shop-stock<?= $available ? '' : ' is-out' ?>"><?= $available ? 'Stokta' : 'Tükendi' ?></p>
-                    <?php if ($available): ?>
-                        <a class="btn" href="<?= url('/siparis?urun=' . rawurlencode((string) $product['key'])) ?>">Satın al</a>
+                    <?php if ($available && $maxQty >= 1): ?>
+                        <form class="shop-buy" method="get" action="<?= url('/siparis') ?>">
+                            <input type="hidden" name="urun" value="<?= e((string) $product['key']) ?>">
+                            <div class="qty-step" data-qty>
+                                <button type="button" data-qty-down aria-label="Adedi azalt">−</button>
+                                <input type="number" name="adet" min="1" max="<?= (int) $maxQty ?>" value="1" inputmode="numeric" aria-label="Adet" required>
+                                <button type="button" data-qty-up aria-label="Adedi artır">+</button>
+                            </div>
+                            <button class="btn" type="submit">Satın al</button>
+                        </form>
                         <p class="shop-meta">Üye olmadan da sipariş verebilirsin.</p>
                     <?php else: ?>
                         <span class="btn shop-sold">Tükendi</span>

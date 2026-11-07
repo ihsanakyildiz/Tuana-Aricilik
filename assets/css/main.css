@@ -1692,7 +1692,56 @@ body.is-preview .promo-slide { position: relative; top: auto; margin-top: -88px;
 .shop-facts li { padding: 6px 10px; border-radius: 999px; background: #f7f4ef; color: #5c564e; font-size: 13px; font-weight: 800; }
 .shop-buy-card .shop-stock { display: inline-flex; margin-top: 14px; padding: 4px 10px; border-radius: 999px; background: #e7f6ec; }
 .shop-buy-card .shop-stock.is-out { background: #fde8e4; }
+.shop-buy {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+.shop-buy .btn { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 0; }
+.qty-step {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    height: 46px;
+    border: 1.5px solid #e4d3b0;
+    border-radius: 999px;
+    background: #fff;
+    overflow: hidden;
+}
+.qty-step button {
+    width: 40px;
+    height: 46px;
+    border: 0;
+    background: #fff8ea;
+    color: var(--ink);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+}
+.qty-step button:hover { background: #f3e4c4; }
+.qty-step button:disabled { background: #fff; color: #c4b8a4; cursor: default; }
+.qty-step input {
+    width: 44px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.qty-step input::-webkit-outer-spin-button,
+.qty-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.shop-field .qty-step input { width: 44px; }
 .shop-buy-card .btn { width: 100%; margin-top: 16px; }
+.shop-buy-card .shop-buy .btn { width: auto; margin-top: 0; }
 .shop-meta { margin: 8px 0 0; color: #6f675e; font-weight: 700; }
 .shop-sold { background: #efeae3; color: #6f675e; cursor: default; }
 .shop-story {

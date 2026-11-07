@@ -402,4 +402,58 @@
         show(true);
         restart();
     });
+
+    document.querySelectorAll("[data-qty]").forEach(function (box) {
+        var input = box.querySelector("input");
+        var down = box.querySelector("[data-qty-down]");
+        var up = box.querySelector("[data-qty-up]");
+        if (!input) {
+            return;
+        }
+        function limits() {
+            var min = parseInt(input.getAttribute("min") || "1", 10);
+            var max = parseInt(input.getAttribute("max") || "99", 10);
+            if (!min || min < 1) {
+                min = 1;
+            }
+            if (!max || max < min) {
+                max = min;
+            }
+            return { min: min, max: max };
+        }
+        function setQty(next, notify) {
+            var limit = limits();
+            var value = parseInt(String(next), 10);
+            if (!value || value < limit.min) {
+                value = limit.min;
+            }
+            if (value > limit.max) {
+                value = limit.max;
+            }
+            input.value = String(value);
+            if (down) {
+                down.disabled = value <= limit.min;
+            }
+            if (up) {
+                up.disabled = value >= limit.max;
+            }
+            if (notify) {
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        }
+        if (down) {
+            down.addEventListener("click", function () {
+                setQty(parseInt(input.value || "1", 10) - 1, true);
+            });
+        }
+        if (up) {
+            up.addEventListener("click", function () {
+                setQty(parseInt(input.value || "1", 10) + 1, true);
+            });
+        }
+        input.addEventListener("change", function () {
+            setQty(input.value, false);
+        });
+        setQty(input.value, false);
+    });
 })();
