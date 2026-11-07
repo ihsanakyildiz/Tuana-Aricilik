@@ -829,6 +829,11 @@ body.is-collapsed .nav-link { justify-content: center; width: 52px; margin-inlin
     outline: 2px solid #d9ccfb;
     border-color: #b9a4f0;
 }
+.field input:disabled {
+    background: #f6f3ee;
+    color: #8a8176;
+    cursor: default;
+}
 
 .field-box { position: relative; display: block; }
 .field-box input { padding-right: 44px; }

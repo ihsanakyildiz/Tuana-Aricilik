@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../app/FooterLinks.php';
+require_once __DIR__ . '/../app/SiteSettings.php';
 
 $columns = FooterLinks::columns();
 $socials = setting('socials', []);
@@ -96,7 +97,28 @@ if (!is_array($intro)) {
     </div>
     <div class="container footer-bottom">
         <p><?= e(copyright_text()) ?></p>
-        <p class="photo-credit"><?= e((string) setting('photo_credit', '')) ?></p>
+        <?php if (trim((string) setting('photo_credit', '')) !== ''): ?>
+            <p class="photo-credit"><?= e((string) setting('photo_credit', '')) ?></p>
+        <?php endif; ?>
+        <?php
+        $designCredit = SiteSettings::designCredit();
+        $designLabel = $designCredit['label'];
+        $designName = $designCredit['name'];
+        $designUrl = $designCredit['url'];
+        ?>
+        <?php if ($designLabel !== '' || $designName !== ''): ?>
+            <p class="photo-credit design-credit">
+                <?php if ($designLabel !== ''): ?><?= e($designLabel) ?><?php endif; ?>
+                <?php if ($designName !== ''): ?>
+                    <?php if ($designLabel !== ''): ?> <?php endif; ?>
+                    <?php if ($designUrl !== ''): ?>
+                        <a href="<?= e($designUrl) ?>" target="_blank" rel="noopener noreferrer"><?= e($designName) ?></a>
+                    <?php else: ?>
+                        <?= e($designName) ?>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </p>
+        <?php endif; ?>
     </div>
 </footer>
 

@@ -205,6 +205,21 @@ require dirname(__DIR__) . '/partials/admin/start.php';
                 <span>Fotoğraf notu</span>
                 <input id="photo-credit" name="photo_credit" type="text" maxlength="180" value="<?= e((string) $values['photo_credit']) ?>">
             </label>
+            <div class="fields-2">
+                <label class="field" for="design-label">
+                    <span>Tasarım yazısı</span>
+                    <input id="design-label" type="text" value="<?= e((string) ($values['design_label'] ?? '')) ?>" disabled>
+                </label>
+                <label class="field" for="design-name">
+                    <span>Firma adı</span>
+                    <input id="design-name" type="text" value="<?= e((string) ($values['design_name'] ?? '')) ?>" disabled>
+                </label>
+            </div>
+            <label class="field" for="design-url">
+                <span>Firma adresi</span>
+                <input id="design-url" type="text" value="<?= e((string) ($values['design_url'] ?? '')) ?>" disabled>
+            </label>
+            <p class="field-hint">Bu satır sabittir. Firma adı sitede bağlantı olarak görünür ve değiştirilemez.</p>
         </section>
 
         <section class="settings-card">

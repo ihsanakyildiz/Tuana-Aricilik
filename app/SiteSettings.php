@@ -66,6 +66,9 @@ final class SiteSettings
             'copyright' => (string) setting('copyright', ''),
             'footer_about' => (string) setting('footer_about', ''),
             'photo_credit' => (string) setting('photo_credit', ''),
+            'design_label' => self::designCredit()['label'],
+            'design_name' => self::designCredit()['name'],
+            'design_url' => self::designCredit()['url'],
             'upload_dir' => (string) setting('upload_dir', 'assets/uploads'),
             'theme_dir' => (string) setting('theme_dir', 'assets'),
             'maintenance' => setting('maintenance', false) === true || setting('maintenance', false) === 1,
@@ -119,6 +122,16 @@ final class SiteSettings
         header('X-LiteSpeed-Purge: *');
 
         return [];
+    }
+
+    /** @return array{label:string,name:string,url:string} */
+    public static function designCredit(): array
+    {
+        return [
+            'label' => 'Tasarım ve Kodlama',
+            'name' => 'İhsan Akyıldız',
+            'url' => 'https://www.ihsanakyildiz.com.tr',
+        ];
     }
 
     /** @return array{kvkk_label:string,kvkk_url:string,terms_label:string,terms_url:string} */

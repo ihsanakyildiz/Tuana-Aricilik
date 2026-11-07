@@ -1263,6 +1263,8 @@ body.is-article .page-banner h1 {
 }
 .footer-bottom p { margin: 0; color: #cbbda8; font-size: 14px; }
 .photo-credit { margin-top: 6px; font-size: 12px; color: #9c8d78; }
+.design-credit a { color: #e2a93b; text-underline-offset: 2px; }
+.design-credit a:hover { color: #fff; }
 
 .intro-dialog {
     width: min(860px, calc(100% - 32px));
